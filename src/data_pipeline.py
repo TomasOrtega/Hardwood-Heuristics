@@ -40,7 +40,7 @@ PROCESSED_DIR = DATA_DIR / "processed"
 FINAL_PERIOD_SECONDS = 180          # last 3 minutes of regulation / OT
 SCORE_DIFF_CLIP = 30                # clip extreme leads for state compression
 MAX_FOULS_TO_GIVE = 2
-RATE_LIMIT_SLEEP = 0.65             # seconds between API calls
+RATE_LIMIT_SLEEP = 2             # seconds between API calls
 MAX_RETRIES = 5
 BACKOFF_BASE = 2.0                  # exponential back-off multiplier
 
