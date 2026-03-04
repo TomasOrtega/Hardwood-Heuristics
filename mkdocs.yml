@@ -1,0 +1,53 @@
+site_name: NBA Folk Theorems
+site_description: Empirical MDP analysis of late-game basketball strategies
+site_author: Hardwood Heuristics Team
+site_url: https://hardwood-heuristics.github.io/Hardwood-Heuristics/
+
+repo_name: Hardwood-Heuristics/Hardwood-Heuristics
+repo_url: https://github.com/Hardwood-Heuristics/Hardwood-Heuristics
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: orange
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: indigo
+      accent: orange
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  font:
+    text: Roboto
+    code: Roboto Mono
+  features:
+    - navigation.tabs
+    - navigation.top
+    - search.highlight
+    - content.code.copy
+
+plugins:
+  - search
+
+markdown_extensions:
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.highlight
+  - pymdownx.superfences
+  - admonition
+  - toc:
+      permalink: true
+  - tables
+
+extra_javascript:
+  - https://polyfill.io/v3/polyfill.min.js?features=es6
+  - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
+
+nav:
+  - Home: index.md
+  - "Theorem 1: The 2-for-1": theorem1_two_for_one.md
+  - "Theorem 2: Foul Up 3": theorem2_foul_up_3.md
