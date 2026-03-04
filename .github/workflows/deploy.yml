@@ -1,0 +1,51 @@
+name: Build and Deploy Docs to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Python dependencies
+        run: |
+          pip install --upgrade pip
+          pip install \
+            numpy pandas scipy matplotlib seaborn \
+            nba_api \
+            mkdocs-material
+
+      - name: Install project package
+        run: pip install -e .
+
+      - name: Generate plots
+        run: |
+          python -m src.visualizations
+        continue-on-error: true   # Don't fail deploy if plot generation has issues
+
+      - name: Build MkDocs site
+        run: mkdocs build --strict
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./site
+          publish_branch: gh-pages
+          commit_message: "Deploy docs: ${{ github.sha }}"
