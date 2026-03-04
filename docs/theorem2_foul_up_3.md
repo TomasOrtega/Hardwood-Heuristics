@@ -3,26 +3,21 @@
 ## Claim
 
 > **Based on NBA play-by-play data from 2019–2024, teams leading by 3 points
-> with fewer than 12 seconds remaining win at a higher historical rate when
-> they intentionally foul the ball-handler.**
+> with fewer than 12 seconds remaining generally win more often when they
+> intentionally foul — especially against good three-point shooters.**
 
 ---
 
 ## How We Measure It
 
-We filter the historical play-by-play log for situations where:
+We filter the historical play-by-play log for:
 
-- The home team is defending (away team has the ball)
-- The home team leads by exactly 3 points
+- Home team defending (away team has the ball)
+- Home team leads by exactly 3 points
 - Fewer than 12 seconds remain
 
-We group possessions by:
-
-- **Foul:** The defending team commits an intentional foul.
-- **No Foul:** Normal defense is played.
-
-We then calculate the **historical win percentage** for the home team in
-each group — the fraction of games the home team won after each choice.
+We group possessions by **Foul** (intentional) vs. **No Foul** (normal defence),
+and compute the home-team historical win percentage for each.
 
 ---
 
@@ -30,12 +25,8 @@ each group — the fraction of games the home team won after each choice.
 
 ![Foul Up 3 Heatmap](assets/images/foul_up_3_heatmap.png)
 
-The heatmap displays the historical win % gain (in percentage points) from
-fouling vs. not fouling across combinations of seconds remaining (rows) and
-opponent 3PT% (columns).
-
-- **Green cells** — Fouling historically increases win percentage (positive gain)
-- **Red cells** — Normal defense historically performs better (negative gain)
+The heatmap shows the historical win % gain from fouling (green = fouling better,
+red = normal defence better) across time remaining and opponent 3PT%.
 
 ### Key Findings
 
@@ -68,13 +59,11 @@ Data from 5 NBA seasons (2019–2024):
 
 ## Sensitivity Analysis
 
-The key driver of the decision is the **opponent's 3PT%**. As the opponent's
-three-point shooting ability increases, the expected cost of allowing a 3PT
-attempt grows, making the foul decision more valuable.
+The key driver is the **opponent's 3PT%** — a higher shooting rate makes
+allowing a three-point attempt more costly.
 
-Historical data shows fouling is beneficial across the **full range** of
-analyzed 3PT percentages (28%–44%): the win % gain ranges from
-+-17.5 pp to +6.3 pp.
+Analyzed range (28%–44% opponent 3PT%):
+win % gain from fouling ranges from -17.5 pp to +6.3 pp.
 
 ---
 

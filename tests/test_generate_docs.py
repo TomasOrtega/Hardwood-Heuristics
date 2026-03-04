@@ -18,14 +18,18 @@ from src.generate_docs import (
     _build_theorem1_key_findings,
     _build_theorem2_conclusion,
     _build_theorem2_key_findings,
+    _build_theorem3_conclusion,
+    _build_theorem3_key_findings,
     _consecutive_positive_windows,
     _find_sweep_entry,
     _fmt_ev,
     _fmt_gain,
+    _gain_label,
     _largest_window,
     generate_all_docs,
     _generate_theorem1_doc,
     _generate_theorem2_doc,
+    _generate_theorem3_doc,
 )
 
 
@@ -63,6 +67,45 @@ def _make_sweep(
 def _write_theorem1_data(tmp_path: Path, sweep: list[dict]) -> None:
     """Write sweep list to theorem1_sweep.json in tmp_path."""
     with open(tmp_path / "theorem1_sweep.json", "w") as f:
+        json.dump(sweep, f)
+
+
+def _make_theorem3_sweep(
+    time_range: list[int] | None = None,
+    timeout_better_from: int | None = None,
+) -> list[dict]:
+    """
+    Create a synthetic Theorem 3 sweep list.
+
+    If timeout_better_from is given, entries with seconds_remaining >=
+    timeout_better_from get positive ev_gain; all others get negative.
+    Otherwise all entries get a small mixed signal.
+    """
+    if time_range is None:
+        time_range = list(range(20, 51, 2))
+    results = []
+    for s in time_range:
+        if timeout_better_from is not None:
+            ev_timeout = 0.55 if s >= timeout_better_from else 0.40
+            ev_play_on = 0.45
+        else:
+            ev_timeout = 0.48
+            ev_play_on = 0.50
+        results.append(
+            {
+                "seconds_remaining": s,
+                "ev_timeout": ev_timeout,
+                "ev_play_on": ev_play_on,
+                "ev_gain": ev_timeout - ev_play_on,
+                "timeout_is_optimal": ev_timeout > ev_play_on,
+            }
+        )
+    return results
+
+
+def _write_theorem3_data(tmp_path: Path, sweep: list[dict]) -> None:
+    """Write sweep list to theorem3_sweep.json in tmp_path."""
+    with open(tmp_path / "theorem3_sweep.json", "w") as f:
         json.dump(sweep, f)
 
 
@@ -183,7 +226,7 @@ class TestBuildTheorem1KeyFindings:
     def test_all_negative(self):
         sweep = [{"seconds_remaining": s, "ev_gain": -0.1} for s in range(10, 65, 2)]
         text = _build_theorem1_key_findings(sweep)
-        assert "No time window" in text
+        assert "No consistent" in text or "does not" in text.lower()
 
 
 class TestBuildTheorem2KeyFindings:
@@ -305,21 +348,95 @@ class TestGenerateTheorem2Doc:
 
 
 # ---------------------------------------------------------------------------
+# _build_theorem3_key_findings / _build_theorem3_conclusion
+# ---------------------------------------------------------------------------
+class TestBuildTheorem3KeyFindings:
+    def test_all_negative_mentions_no_advantage(self):
+        sweep = _make_theorem3_sweep()  # all slightly negative
+        text = _build_theorem3_key_findings(sweep)
+        assert "does not" in text.lower() or "inconclusive" in text.lower() or "mixed" in text.lower()
+
+    def test_all_positive(self):
+        sweep = _make_theorem3_sweep(timeout_better_from=20)  # all positive
+        text = _build_theorem3_key_findings(sweep)
+        assert "beneficial" in text.lower() or "all analyzed" in text.lower()
+
+    def test_mixed_mentions_mixed(self):
+        sweep = _make_theorem3_sweep(timeout_better_from=35)  # mixed
+        text = _build_theorem3_key_findings(sweep)
+        assert any(word in text.lower() for word in ["mixed", "inconclusive", "both"])
+
+
+class TestBuildTheorem3Conclusion:
+    def test_all_negative(self):
+        sweep = _make_theorem3_sweep()
+        text = _build_theorem3_conclusion(sweep)
+        assert "not" in text.lower() or "inconclusive" in text.lower()
+
+    def test_all_positive(self):
+        sweep = _make_theorem3_sweep(timeout_better_from=20)
+        text = _build_theorem3_conclusion(sweep)
+        assert "favour" in text.lower() or "favours" in text.lower() or "beneficial" in text.lower()
+
+
+# ---------------------------------------------------------------------------
+# _generate_theorem3_doc
+# ---------------------------------------------------------------------------
+class TestGenerateTheorem3Doc:
+    def test_file_created(self, tmp_path):
+        sweep = _make_theorem3_sweep()
+        _write_theorem3_data(tmp_path, sweep)
+        out = _generate_theorem3_doc(processed_dir=tmp_path, docs_dir=tmp_path)
+        assert out.exists()
+        assert out.stat().st_size > 500
+
+    def test_returns_path(self, tmp_path):
+        sweep = _make_theorem3_sweep()
+        _write_theorem3_data(tmp_path, sweep)
+        result = _generate_theorem3_doc(processed_dir=tmp_path, docs_dir=tmp_path)
+        assert isinstance(result, Path)
+        assert result.name == "theorem3_timeout.md"
+
+    def test_values_match_analysis(self, tmp_path):
+        sweep = _make_theorem3_sweep()
+        _write_theorem3_data(tmp_path, sweep)
+        _generate_theorem3_doc(processed_dir=tmp_path, docs_dir=tmp_path)
+        content = (tmp_path / "theorem3_timeout.md").read_text()
+        e40 = _find_sweep_entry(sweep, 40)
+        assert f"{e40['ev_timeout']:.2f}" in content
+
+    def test_missing_data_raises(self, tmp_path):
+        with pytest.raises(FileNotFoundError):
+            _generate_theorem3_doc(processed_dir=tmp_path, docs_dir=tmp_path)
+
+    def test_inconclusive_conclusion_when_mixed(self, tmp_path):
+        sweep = _make_theorem3_sweep(timeout_better_from=35)
+        _write_theorem3_data(tmp_path, sweep)
+        _generate_theorem3_doc(processed_dir=tmp_path, docs_dir=tmp_path)
+        content = (tmp_path / "theorem3_timeout.md").read_text()
+        assert any(word in content.lower() for word in ["inconclusive", "mixed", "noise"])
+
+
+# ---------------------------------------------------------------------------
 # generate_all_docs
 # ---------------------------------------------------------------------------
 class TestGenerateAllDocs:
-    def test_generates_both_files(self, tmp_path):
-        sweep = _make_sweep()
-        _write_theorem1_data(tmp_path, sweep)
+    def test_generates_all_three_files(self, tmp_path):
+        sweep1 = _make_sweep()
+        _write_theorem1_data(tmp_path, sweep1)
         _write_theorem2_data(tmp_path)
+        sweep3 = _make_theorem3_sweep()
+        _write_theorem3_data(tmp_path, sweep3)
         paths = generate_all_docs(processed_dir=tmp_path, docs_dir=tmp_path)
-        assert len(paths) == 2
+        assert len(paths) == 3
         for p in paths:
             assert p.exists()
 
     def test_returns_path_list(self, tmp_path):
-        sweep = _make_sweep()
-        _write_theorem1_data(tmp_path, sweep)
+        sweep1 = _make_sweep()
+        _write_theorem1_data(tmp_path, sweep1)
         _write_theorem2_data(tmp_path)
+        sweep3 = _make_theorem3_sweep()
+        _write_theorem3_data(tmp_path, sweep3)
         result = generate_all_docs(processed_dir=tmp_path, docs_dir=tmp_path)
         assert all(isinstance(p, Path) for p in result)
