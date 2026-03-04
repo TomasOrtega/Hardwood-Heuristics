@@ -173,8 +173,12 @@ Using league-average parameters:
   (2019–24 regular season):
   - 2PT FG%: **{fg2_pct:.0%}**   |   3PT FG%: **{fg3_pct:.0%}**   |   FT%: **{ft_pct:.0%}**
   - Turnover rate: **{to_rate:.0%}**   |   Foul-drawn rate: **{foul_rate:.0%}**
-* "Hold" action distributes time costs uniformly over 20–25 seconds to reflect
-  real possession variability.
+* Strategy B ("Normal") models a typical possession of 20–25 seconds. For very
+  short time values (< 25 s), the hold duration is clipped to the available clock.
+* The "foul" action is restricted to defensive states (away possession) where the
+  home team intentionally fouls the ball-handler. From home possession the shoot
+  action already accounts for foul-drawn probability, so no separate foul shortcut
+  is available — this keeps the value function grounded in realistic outcomes.
 * The model treats rebounds probabilistically rather than tracking individual
   players.
 
@@ -182,10 +186,7 @@ Using league-average parameters:
 
 ## Conclusion
 
-**The 2-for-1 is mathematically justified in a narrow time window (~{window_low}–{window_high} s).**
-Outside this window, the conventional wisdom breaks down. Coaches should be aware
-of the exact clock time before committing to a rush — taking a shot at {conclusion_caution_sec} seconds
-can actually *reduce* win probability relative to playing for a clean look.
+{conclusion}
 """
 
 
@@ -205,52 +206,84 @@ def _build_theorem1_key_findings(sweep: List[Dict]) -> str:
         )
 
     main_window = max(windows, key=lambda w: w[1] - w[0])
-    lines: List[str] = []
-
-    # Finding 1: main rush window
-    lines.append(
-        f"1. **Critical window: ~{main_window[0]}–{main_window[1]} seconds remaining.**"
-        " This is where the EV gain from\n"
-        "   rushing is maximised. A team with possession in this window should consider\n"
-        "   pushing the pace to ensure two possessions."
+    all_secs = [e["seconds_remaining"] for e in sorted_sweep]
+    sweep_min, sweep_max = min(all_secs), max(all_secs)
+    window_covers_full_range = (
+        main_window[0] == sweep_min and main_window[1] == sweep_max
     )
 
-    # Finding 2: below threshold (if negative region exists below the main window)
-    below_negs = [s for s in negative_secs if s < main_window[0]]
-    if below_negs:
-        boundary = max(below_negs)
-        lines.append(
-            f"2. **Below ~{boundary} seconds: normal possession is preferred** — "
-            "insufficient time\n"
-            "   for the opponent to mount a meaningful second possession, so the\n"
-            "   risk-return of rushing does not pay off."
-        )
-    else:
-        # No negative region below the main window: rush is always better at low times too
-        secondary_windows = [w for w in windows if w != main_window]
-        if secondary_windows:
-            sw = secondary_windows[0]
-            lines.append(
-                f"2. **Below ~{sw[1]} seconds: rushing is also better** because "
-                "there is insufficient\n"
-                "   time for a normal possession *plus* a second shot."
-            )
+    lines: List[str] = []
 
-    # Finding 3: above threshold (if negative region above the main window)
-    above_negs = [s for s in negative_secs if s > main_window[1]]
-    if above_negs:
-        boundary = min(above_negs)
+    if window_covers_full_range:
+        # Rush is better across the entire analyzed range.
+        max_gain_entry = max(sorted_sweep, key=lambda e: e["ev_gain"])
+        min_gain_entry = min(sorted_sweep, key=lambda e: e["ev_gain"])
         lines.append(
-            f"3. **Above ~{boundary} seconds: normal possession is preferable.** "
-            f"Rushing at {boundary}+ seconds\n"
-            "   gives the opponent two possessions, negating the advantage."
+            f"1. **Rush advantage holds across the full analyzed window "
+            f"({sweep_min}–{sweep_max} s).**"
+            " The EV gain from rushing is positive throughout.\n"
+            f"   The advantage is largest around ~{max_gain_entry['seconds_remaining']} s "
+            f"and smallest near ~{min_gain_entry['seconds_remaining']} s."
+        )
+        # Find the classic 2-for-1 window (28-34s) and describe it
+        classic_entries = [e for e in sorted_sweep if 28 <= e["seconds_remaining"] <= 34]
+        if classic_entries:
+            avg_gain_classic = sum(e["ev_gain"] for e in classic_entries) / len(classic_entries)
+            lines.append(
+                f"2. **Classic 2-for-1 window (~28–34 s): modest but consistent advantage.**"
+                f" Average EV gain ≈ +{avg_gain_classic:.2f} in this range — "
+                "rushing ensures two possessions vs. the opponent's one."
+            )
+        lines.append(
+            "3. **The gain is larger at shorter time values** because holding for a full\n"
+            "   possession at < 25 s consumes most of the remaining clock, while rushing\n"
+            "   still gives the team a realistic scoring opportunity before time expires."
         )
     else:
+        # Finding 1: main rush window
         lines.append(
-            "3. **Within the analyzed range the rush advantage holds** across most"
-            " clock values in\n"
-            "   the main window — but the margin narrows significantly outside of it."
+            f"1. **Critical window: ~{main_window[0]}–{main_window[1]} seconds remaining.**"
+            " This is where the EV gain from\n"
+            "   rushing is maximised. A team with possession in this window should consider\n"
+            "   pushing the pace to ensure two possessions."
         )
+
+        # Finding 2: below threshold (if negative region exists below the main window)
+        below_negs = [s for s in negative_secs if s < main_window[0]]
+        if below_negs:
+            boundary = max(below_negs)
+            lines.append(
+                f"2. **Below ~{boundary} seconds: normal possession is preferred** — "
+                "insufficient time\n"
+                "   for the opponent to mount a meaningful second possession, so the\n"
+                "   risk-return of rushing does not pay off."
+            )
+        else:
+            # No negative region below the main window: rush is always better at low times too
+            secondary_windows = [w for w in windows if w != main_window]
+            if secondary_windows:
+                sw = secondary_windows[0]
+                lines.append(
+                    f"2. **Below ~{sw[1]} seconds: rushing is also better** because "
+                    "there is insufficient\n"
+                    "   time for a normal possession *plus* a second shot."
+                )
+
+        # Finding 3: above threshold (if negative region above the main window)
+        above_negs = [s for s in negative_secs if s > main_window[1]]
+        if above_negs:
+            boundary = min(above_negs)
+            lines.append(
+                f"3. **Above ~{boundary} seconds: normal possession is preferable.** "
+                f"Rushing at {boundary}+ seconds\n"
+                "   gives the opponent two possessions, negating the advantage."
+            )
+        else:
+            lines.append(
+                "3. **Within the analyzed range the rush advantage holds** across most"
+                " clock values in\n"
+                "   the main window — but the margin narrows significantly outside of it."
+            )
 
     return "\n\n".join(lines)
 
@@ -277,15 +310,47 @@ def _generate_theorem1_doc(
     main_window = _largest_window(sweep)
     window_low, window_high = main_window
 
-    # For the conclusion, pick a representative "bad rush" second just outside
-    # the main rush window (or use the sec just above the sweep maximum).
     sorted_sweep = sorted(sweep, key=lambda e: e["seconds_remaining"])
+    all_secs = [e["seconds_remaining"] for e in sorted_sweep]
+    sweep_min, sweep_max = min(all_secs), max(all_secs)
+    window_covers_full_range = (
+        main_window[0] == sweep_min and main_window[1] == sweep_max
+    )
+
+    # Build conclusion paragraph based on whether there is a genuine caution
+    # window within the analyzed range or whether rush is always preferred.
     above_window_neg = [
         e["seconds_remaining"]
         for e in sorted_sweep
         if e["seconds_remaining"] > window_high and e["ev_gain"] <= 0
     ]
-    conclusion_caution_sec = above_window_neg[0] if above_window_neg else window_high + 2
+    if above_window_neg:
+        conclusion_caution_sec = above_window_neg[0]
+        conclusion = (
+            f"**The 2-for-1 is mathematically justified in the window "
+            f"~{window_low}–{window_high} s.**\n"
+            "Outside this window, the conventional wisdom breaks down. Coaches should be aware\n"
+            f"of the exact clock time — taking a shot at {conclusion_caution_sec} seconds\n"
+            "can actually *reduce* win probability relative to playing for a clean look."
+        )
+    elif window_covers_full_range:
+        conclusion = (
+            f"**The rush advantage holds across the full analyzed range "
+            f"({sweep_min}–{sweep_max} s).**\n"
+            "Shooting immediately is always at least as good as holding for a full possession\n"
+            "within the analyzed window. The gain is most modest in the classic 2-for-1 zone\n"
+            "(~28–34 s), where the difference between rush and normal is small but consistently\n"
+            "positive — coaches should push the pace when the clock is in this range to ensure\n"
+            "two possessions. Much earlier or later in the game, other strategic considerations\n"
+            "dominate."
+        )
+    else:
+        conclusion = (
+            f"**The 2-for-1 is mathematically justified in the time window "
+            f"~{window_low}–{window_high} s.**\n"
+            "Outside this window the conventional wisdom breaks down. Coaches should be aware\n"
+            "of the exact clock time before committing to a rush."
+        )
 
     key_findings = _build_theorem1_key_findings(sweep)
 
@@ -300,9 +365,7 @@ def _generate_theorem1_doc(
 
     content = _THEOREM1_TEMPLATE.format(
         key_findings=key_findings,
-        window_low=window_low,
-        window_high=window_high,
-        conclusion_caution_sec=conclusion_caution_sec,
+        conclusion=conclusion,
         ev_rush_32=_fmt_ev(e32["ev_rush"]),
         ev_normal_32=_fmt_ev(e32["ev_normal"]),
         ev_gain_32=_gain_label(e32["ev_gain"]),
@@ -419,16 +482,19 @@ combinations of seconds remaining (rows) and opponent 3PT% (columns).
 
 ## Sensitivity Analysis
 
-The decision boundary is sensitive to the **opponent's 3PT%**:
+The key driver of the decision is the **opponent's 3PT%**. As the opponent's
+three-point shooting ability increases, the expected cost of allowing a 3PT attempt
+grows, making the foul decision more valuable.
 
-$$\\text{{Foul threshold}} \\approx \\text{{FT\\%}}^2 \\cdot (-2) + (1 - \\text{{FT\\%}}^2) \\cdot 0 \\geq -\\text{{3PT\\%}} \\cdot 0$$
-
-Simplifying with league-average FT% = {ft_pct:.0%}:
+With league-average FT% = {ft_pct:.0%}, the free-throw outcomes impose an expected
+win-probability cost of roughly:
 
 $$\\text{{Expected cost of foul}} = {ft_both_pct:.2f} \\times (-2\\text{{ pp}}) \\approx {foul_cost:.1f}\\text{{ pp}}$$
 
-This cost is outweighed when the 3PT% exceeds roughly **{threshold_low:.0%}–{threshold_high:.0%}** — very close to
-the league average.
+In practice the MDP results show that fouling is beneficial across the **full
+range** of analyzed 3PT percentages ({fg3_min:.0%}–{fg3_max:.0%}): even against
+a relatively poor 3PT team the WP gain is materially positive (+{min_gain_pp:.1f} pp),
+and it grows to +{max_gain_pp:.1f} pp against elite 3PT shooters.
 
 ---
 
@@ -437,8 +503,9 @@ the league average.
 * Free-throw model: independent Bernoulli trials with league-average FT% = {ft_pct:.0%}.
 * A **missed second free throw** is modelled as the fouled team retaining
   possession (rebounds to the offense at a 70 % rate in late-game situations).
-* The MDP solver uses a discount factor $\\gamma = 1.0$ (undiscounted) since we
-  care about win/loss outcomes, not time-weighted rewards.
+* The MDP solver uses a near-undiscounted discount factor ($\\gamma = 0.99$)
+  so that the value function approximates true win probabilities while keeping
+  value iteration well-conditioned.
 
 ---
 
@@ -472,6 +539,37 @@ def _build_theorem2_key_findings(
         best_fg3 = fg3_values[best_fg3_idx]
         worst_fg3 = fg3_values[worst_fg3_idx]
 
+        # Build a data-driven finding #3: compare min-time gains vs max-time gains.
+        min_time_idx = int(np.argmin(time_values))
+        max_time_idx = int(np.argmax(time_values))
+        min_time_gain_pp = float(gain_grid[min_time_idx, :].mean() * 100)
+        max_time_gain_pp = float(gain_grid[max_time_idx, :].mean() * 100)
+        min_time = time_values[min_time_idx]
+        max_time = time_values[max_time_idx]
+
+        if abs(min_time_gain_pp - max_time_gain_pp) < 1.0:
+            finding3 = (
+                f"3. **The benefit is remarkably stable across all time values** "
+                f"({min_time}–{max_time} s):\n"
+                f"   average WP gain at {min_time} s is "
+                f"+{min_time_gain_pp:.1f} pp vs. +{max_time_gain_pp:.1f} pp at {max_time} s —\n"
+                "   fouling is advisable regardless of exactly how many seconds remain."
+            )
+        elif min_time_gain_pp < max_time_gain_pp:
+            finding3 = (
+                f"3. **The advantage is slightly smaller with fewer seconds left**\n"
+                f"   (+{min_time_gain_pp:.1f} pp at {min_time} s vs. "
+                f"+{max_time_gain_pp:.1f} pp at {max_time} s), but fouling remains\n"
+                "   strongly beneficial at all analyzed time values."
+            )
+        else:
+            finding3 = (
+                f"3. **The advantage is slightly larger with fewer seconds left**\n"
+                f"   (+{min_time_gain_pp:.1f} pp at {min_time} s vs. "
+                f"+{max_time_gain_pp:.1f} pp at {max_time} s), as there is less time\n"
+                "   for the opponent to recover after free throws."
+            )
+
         return (
             f"1. **Fouling is beneficial across all analyzed scenarios** "
             f"({min(time_values)}–{max(time_values)} seconds remaining, "
@@ -483,9 +581,7 @@ def _build_theorem2_key_findings(
             f"(+{float(gain_grid[:, worst_fg3_idx].mean() * 100):.1f} pp on average), "
             f"while against a {best_fg3:.0%} shooter it is largest "
             f"(+{float(gain_grid[:, best_fg3_idx].mean() * 100):.1f} pp on average).\n\n"
-            "3. **With only 2 seconds left, the strategy matters less** — there is barely\n"
-            "   enough time for either a clean 3PT attempt or a fast-foul scenario. Both\n"
-            "   strategies converge to similar win probabilities."
+            f"{finding3}"
         )
 
     # There are some cells where normal defense is better.
@@ -619,6 +715,10 @@ def _generate_theorem2_doc(
         foul_cost=foul_cost_pp,
         threshold_low=threshold_low,
         threshold_high=threshold_high,
+        fg3_min=min(fg3_values),
+        fg3_max=max(fg3_values),
+        min_gain_pp=float(gain_grid.min() * 100),
+        max_gain_pp=float(gain_grid.max() * 100),
         key_findings=key_findings,
         conclusion=conclusion,
         wp_foul_8_28=_fmt_ev(wf_8_28),
