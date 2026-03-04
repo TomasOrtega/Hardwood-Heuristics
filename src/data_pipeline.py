@@ -144,7 +144,7 @@ class NBAPlayByPlayScraper:
     """
 
     KAGGLE_DATASET = "wyattowalsh/basketball"
-    DB_FILENAME = "basketball.sqlite"
+    DB_FILENAME = "nba.sqlite"
 
     # Map season string → 5-char regular-season game_id prefix
     _SEASON_PREFIXES: Dict[str, str] = {
@@ -161,7 +161,7 @@ class NBAPlayByPlayScraper:
         "game_id":           "GAME_ID",
         "period":            "PERIOD",
         "pctimestring":      "PCTIMESTRING",
-        "eventMsgType":      "EVENTMSGTYPE",
+        "eventmsgtype":      "EVENTMSGTYPE",
         "score":             "SCORE",
         "homedescription":   "HOMEDESCRIPTION",
         "visitordescription": "VISITORDESCRIPTION",
@@ -223,7 +223,7 @@ class NBAPlayByPlayScraper:
         conn = sqlite3.connect(str(db_path))
         try:
             df = pd.read_sql_query(
-                "SELECT game_id, period, pctimestring, eventMsgType, score, "
+                "SELECT game_id, period, pctimestring, eventmsgtype, score, "
                 "homedescription, visitordescription "
                 "FROM play_by_play WHERE game_id = ?",
                 conn,
@@ -260,7 +260,7 @@ class NBAPlayByPlayScraper:
         params = [f"{p}%" for p in prefixes]
 
         query = (
-            "SELECT game_id, period, pctimestring, eventMsgType, score, "
+            "SELECT game_id, period, pctimestring, eventmsgtype, score, "
             "homedescription, visitordescription "
             f"FROM play_by_play WHERE ({where_clause})"
         )
