@@ -76,12 +76,12 @@ class TestNBAPlayByPlayScraper:
         """fetch_season_game_ids should parse GAME_ID from the SQLite database."""
         import sqlite3
 
-        db_path = tmp_path / "basketball.sqlite"
+        db_path = tmp_path / "nba.sqlite"
         conn = sqlite3.connect(str(db_path))
         conn.execute(
             "CREATE TABLE play_by_play ("
             "game_id TEXT, period INTEGER, pctimestring TEXT, "
-            "eventMsgType INTEGER, score TEXT, "
+            "eventmsgtype INTEGER, score TEXT, "
             "homedescription TEXT, visitordescription TEXT)"
         )
         conn.execute(
