@@ -15,6 +15,7 @@ Plots
 
 from __future__ import annotations
 
+import json
 import logging
 from pathlib import Path
 from typing import List, Optional
@@ -30,6 +31,8 @@ logger = logging.getLogger(__name__)
 
 IMAGES_DIR = Path(__file__).parent.parent / "docs" / "assets" / "images"
 IMAGES_DIR.mkdir(parents=True, exist_ok=True)
+
+PROCESSED_DIR = Path(__file__).parent.parent / "data" / "processed"
 
 # Consistent aesthetics across all figures
 PALETTE = "RdYlGn"
@@ -217,26 +220,46 @@ def generate_all_plots() -> List[Path]:
     """
     Run both MDP theorems and save all plots to ``docs/assets/images/``.
 
+    Pre-computed sweep data is loaded from ``data/processed/`` when available
+    (i.e. after running ``python -m src.collect_data``).  If the saved files
+    are not found the sweeps are recomputed on the fly.
+
     Returns
     -------
     List of Path objects for all generated image files.
     """
-    from src.mdp_engine import Theorem1TwoForOne, Theorem2FoulUp3
-
     saved_paths: List[Path] = []
 
     # --- Theorem 2: Foul Up 3 heatmap ---
-    logger.info("Computing Theorem 2 sweep…")
-    time_values  = list(range(2, 12, 2))
-    fg3_values   = [round(x, 2) for x in np.arange(0.28, 0.46, 0.02)]
-    t2 = Theorem2FoulUp3()
-    grid = t2.sweep(time_values=time_values, fg3_pct_values=fg3_values)
+    t2_grid_path = PROCESSED_DIR / "theorem2_grid.npy"
+    t2_meta_path = PROCESSED_DIR / "theorem2_metadata.json"
+    if t2_grid_path.exists() and t2_meta_path.exists():
+        logger.info("Loading pre-computed Theorem 2 data from %s", t2_grid_path)
+        grid = np.load(t2_grid_path)
+        with open(t2_meta_path) as f:
+            meta = json.load(f)
+        time_values = meta["time_values"]
+        fg3_values = meta["fg3_pct_values"]
+    else:
+        from src.mdp_engine import Theorem2FoulUp3
+        logger.info("Computing Theorem 2 sweep…")
+        time_values = list(range(2, 12, 2))
+        fg3_values = [round(x, 2) for x in np.arange(0.28, 0.46, 0.02)]
+        t2 = Theorem2FoulUp3()
+        grid = t2.sweep(time_values=time_values, fg3_pct_values=fg3_values)
     saved_paths.append(plot_foul_up_3_heatmap(grid, time_values, fg3_values))
 
     # --- Theorem 1: 2-for-1 EV curve ---
-    logger.info("Computing Theorem 1 sweep…")
-    t1 = Theorem1TwoForOne()
-    sweep = t1.sweep_time(time_range=list(range(10, 65, 2)))
+    t1_sweep_path = PROCESSED_DIR / "theorem1_sweep.json"
+    if t1_sweep_path.exists():
+        logger.info("Loading pre-computed Theorem 1 data from %s", t1_sweep_path)
+        with open(t1_sweep_path) as f:
+            sweep = json.load(f)
+    else:
+        from src.mdp_engine import Theorem1TwoForOne
+        logger.info("Computing Theorem 1 sweep…")
+        t1 = Theorem1TwoForOne()
+        sweep = t1.sweep_time(time_range=list(range(10, 65, 2)))
     saved_paths.append(plot_two_for_one_ev_curve(sweep))
 
     return saved_paths
