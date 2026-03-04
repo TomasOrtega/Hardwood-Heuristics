@@ -73,7 +73,7 @@ Using league-average parameters:
 |----------|------|--------|------|---------|
 | 32 s, tied | 0.62 | 0.59 | **+0.03** | Rush ✓ |
 | 40 s, tied | 0.75 | 0.59 | **+0.15** | Rush ✓ |
-| 20 s, tied | 0.49 | 0.59 | -0.10 | Normal ✓ |
+| 20 s, tied | 0.48 | 0.59 | -0.11 | Normal ✓ |
 
 > *Values are home win-probability estimates from backward-induction solver.*
 
