@@ -99,11 +99,11 @@ def plot_foul_up_3_heatmap(
         fmt=".1f",
         linewidths=0.4,
         linecolor="white",
-        cbar_kws={"label": "WP Gain from Fouling (pp)", "shrink": 0.85},
+        cbar_kws={"label": "Historical Win % Gain from Fouling (pp)", "shrink": 0.85},
     )
 
     ax.set_title(
-        "Theorem 2: Foul Up 3\nWin-Probability Gain from Intentional Foul vs. Normal Defense",
+        "Theorem 2: Foul Up 3\nHistorical Win % Gain from Intentional Foul vs. Normal Defense",
         fontweight="bold",
         pad=16,
     )
@@ -166,9 +166,9 @@ def plot_two_for_one_ev_curve(
     ax1.plot(seconds, ev_rush,   color="#E63946", linewidth=2.2, label="Rush (shoot now)")
     ax1.plot(seconds, ev_normal, color="#457B9D", linewidth=2.2, label="Normal (full possession)")
     ax1.axhline(0, color="black", linewidth=0.8, linestyle="--", alpha=0.5)
-    ax1.set_ylabel("Expected Win Probability (home)")
+    ax1.set_ylabel("Historical Win Percentage")
     ax1.set_title(
-        "Theorem 1: The 2-for-1\nExpected Win Probability: Rush Shot vs. Full Possession",
+        "Theorem 1: The 2-for-1\nHistorical Win Percentage: Rush Shot vs. Full Possession",
         fontweight="bold",
     )
     ax1.legend(loc="upper right")
@@ -181,8 +181,8 @@ def plot_two_for_one_ev_curve(
     ax2.bar(seconds, gain_arr, color=colors, width=1.6, alpha=0.85)
     ax2.axhline(0, color="black", linewidth=1.0)
     ax2.set_xlabel("Seconds Remaining in Possession")
-    ax2.set_ylabel("EV Gain from Rushing (pp)")
-    ax2.set_title("EV Gain: Rush − Normal  (green = rushing is better)")
+    ax2.set_ylabel("Historical Win % Gain from Rushing (pp)")
+    ax2.set_title("Win % Gain: Rush − Normal  (green = rushing is better)")
     ax2.grid(True, alpha=0.3, axis="y")
 
     # Mark the crossover point
@@ -217,23 +217,20 @@ def plot_two_for_one_ev_curve(
 # Per-theorem plot helpers
 # ---------------------------------------------------------------------------
 def _plot_theorem2(processed_dir: Path = PROCESSED_DIR, images_dir: Path = IMAGES_DIR) -> Path:
-    """Load (or compute) Theorem 2 data and save the Foul-Up-3 heatmap."""
+    """Load Theorem 2 data and save the Foul-Up-3 heatmap."""
     t2_grid_path = processed_dir / "theorem2_grid.npy"
     t2_meta_path = processed_dir / "theorem2_metadata.json"
-    if t2_grid_path.exists() and t2_meta_path.exists():
-        logger.info("Loading pre-computed Theorem 2 data from %s", t2_grid_path)
-        grid = np.load(t2_grid_path)
-        with open(t2_meta_path) as f:
-            meta = json.load(f)
-        time_values = meta["time_values"]
-        fg3_values = meta["fg3_pct_values"]
-    else:
-        from src.mdp_engine import Theorem2FoulUp3
-        logger.info("Computing Theorem 2 sweep…")
-        time_values = list(range(2, 12, 2))
-        fg3_values = [round(x, 2) for x in np.arange(0.28, 0.46, 0.02)]
-        t2 = Theorem2FoulUp3()
-        grid = t2.sweep(time_values=time_values, fg3_pct_values=fg3_values)
+    if not (t2_grid_path.exists() and t2_meta_path.exists()):
+        raise FileNotFoundError(
+            f"Theorem 2 data not found in {processed_dir}. "
+            "Run `python -m src.collect_data` first."
+        )
+    logger.info("Loading pre-computed Theorem 2 data from %s", t2_grid_path)
+    grid = np.load(t2_grid_path)
+    with open(t2_meta_path) as f:
+        meta = json.load(f)
+    time_values = meta["time_values"]
+    fg3_values = meta["fg3_pct_values"]
     return plot_foul_up_3_heatmap(
         grid, time_values, fg3_values,
         out_path=images_dir / "foul_up_3_heatmap.png",
@@ -241,17 +238,16 @@ def _plot_theorem2(processed_dir: Path = PROCESSED_DIR, images_dir: Path = IMAGE
 
 
 def _plot_theorem1(processed_dir: Path = PROCESSED_DIR, images_dir: Path = IMAGES_DIR) -> Path:
-    """Load (or compute) Theorem 1 data and save the 2-for-1 EV curve."""
+    """Load Theorem 1 data and save the 2-for-1 win-percentage curve."""
     t1_sweep_path = processed_dir / "theorem1_sweep.json"
-    if t1_sweep_path.exists():
-        logger.info("Loading pre-computed Theorem 1 data from %s", t1_sweep_path)
-        with open(t1_sweep_path) as f:
-            sweep = json.load(f)
-    else:
-        from src.mdp_engine import Theorem1TwoForOne
-        logger.info("Computing Theorem 1 sweep…")
-        t1 = Theorem1TwoForOne()
-        sweep = t1.sweep_time(time_range=list(range(10, 65, 2)))
+    if not t1_sweep_path.exists():
+        raise FileNotFoundError(
+            f"Theorem 1 data not found at {t1_sweep_path}. "
+            "Run `python -m src.collect_data` first."
+        )
+    logger.info("Loading pre-computed Theorem 1 data from %s", t1_sweep_path)
+    with open(t1_sweep_path) as f:
+        sweep = json.load(f)
     return plot_two_for_one_ev_curve(sweep, out_path=images_dir / "two_for_one_ev_curve.png")
 
 

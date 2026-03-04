@@ -3,26 +3,26 @@ data_pipeline.py
 ================
 Loads NBA play-by-play data from the Kaggle basketball dataset
 (wyattowalsh/basketball), cleans and parses each event, then converts
-the chronological log into a discrete MDP state space and empirical
-transition-probability matrices.
+the chronological log into a flat historical possession log.
 
-State representation
---------------------
-A game state is the 4-tuple:
-    s = (score_differential, seconds_remaining, possession, fouls_to_give)
-
-where
-    score_differential  : integer in [-30, 30]  (home minus away, clipped)
-    seconds_remaining   : integer in [0, 180]   (final 3 minutes only)
-    possession          : 0 = away, 1 = home
-    fouls_to_give       : integer in [0, 2]
+Output columns
+--------------
+    game_id             : string  – unique game identifier
+    season              : string  – e.g. "2023-24"
+    seconds_remaining   : int     – seconds left in the period [0, 180]
+    score_differential  : int     – home minus away score (clipped to ±30)
+    possession          : int     – 0 = away team, 1 = home team
+    fouls_to_give       : int     – [0, 2]
+    action_taken        : string  – "shoot", "foul", "timeout", "turnover",
+                                    "rebound", "free_throw", or "other"
+    game_outcome        : int     – 1 = home team won, 0 = away team won
 """
 
 from __future__ import annotations
 
 import logging
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
@@ -39,18 +39,18 @@ RAW_DIR = DATA_DIR / "raw"
 PROCESSED_DIR = DATA_DIR / "processed"
 
 FINAL_PERIOD_SECONDS = 180          # last 3 minutes of regulation / OT
-SCORE_DIFF_CLIP = 30                # clip extreme leads for state compression
+SCORE_DIFF_CLIP = 30                # clip extreme leads for analysis
 MAX_FOULS_TO_GIVE = 2
 MAX_RETRIES = 5
 BACKOFF_BASE = 2.0                  # exponential back-off multiplier
 
 
 # ---------------------------------------------------------------------------
-# Data-classes
+# Data-classes (kept for backwards compatibility)
 # ---------------------------------------------------------------------------
 @dataclass
 class GameState:
-    """Discrete MDP state for a late-game possession."""
+    """Discrete state for a late-game possession."""
 
     score_differential: int   # home − away, clipped to ±SCORE_DIFF_CLIP
     seconds_remaining: int    # seconds left in the period [0, 180]
@@ -68,16 +68,6 @@ class GameState:
     @staticmethod
     def from_tuple(t: Tuple[int, int, int, int]) -> "GameState":
         return GameState(*t)
-
-
-@dataclass
-class Transition:
-    """A single observed (state, action) → next_state transition."""
-
-    state: GameState
-    action: str       # e.g. "shoot", "foul", "hold"
-    next_state: GameState
-    reward: float     # +1.0 = won game, −1.0 = lost game, 0.0 = in-progress
 
 
 # ---------------------------------------------------------------------------
@@ -120,6 +110,19 @@ def _period_clock_to_seconds(clock_str: str) -> int:
         parts = clock_str.split(":")
         return int(parts[0]) * 60 + int(float(parts[1]))
     return 0
+
+
+def _season_from_game_id(game_id: str) -> str:
+    """Derive a season string (e.g. '2023-24') from a 10-digit NBA game ID."""
+    _prefix_to_season: Dict[str, str] = {
+        "00219": "2019-20",
+        "00220": "2020-21",
+        "00221": "2021-22",
+        "00222": "2022-23",
+        "00223": "2023-24",
+    }
+    prefix = str(game_id)[:5]
+    return _prefix_to_season.get(prefix, "")
 
 
 # ---------------------------------------------------------------------------
@@ -321,9 +324,9 @@ class NBAPlayByPlayScraper:
 # ---------------------------------------------------------------------------
 class PlayByPlayParser:
     """
-    Converts raw PBP rows into (state, action, next_state, reward) transitions,
-    keeping only events from the final ``FINAL_PERIOD_SECONDS`` seconds of the
-    4th quarter or any overtime period.
+    Converts raw PBP rows into a flat historical possession log, keeping only
+    events from the final ``FINAL_PERIOD_SECONDS`` seconds of the 4th quarter
+    or any overtime period.
 
     Parameters
     ----------
@@ -354,14 +357,13 @@ class PlayByPlayParser:
     # ------------------------------------------------------------------
     def parse(self, raw_df: pd.DataFrame) -> pd.DataFrame:
         """
-        Parse raw PBP into a tidy state-transition DataFrame.
+        Parse raw PBP into a flat historical possession log.
 
         Returns
         -------
         pd.DataFrame with columns:
-            game_id, period, seconds_remaining, score_differential,
-            possession, fouls_to_give, action, next_score_diff,
-            next_seconds_remaining, next_possession, next_fouls_to_give, reward
+            game_id, season, seconds_remaining, score_differential,
+            possession, fouls_to_give, action_taken, game_outcome
         """
         if raw_df.empty:
             return pd.DataFrame()
@@ -388,7 +390,15 @@ class PlayByPlayParser:
 
         rows: List[Dict] = []
         for game_id, game_df in late_game.groupby("GAME_ID"):
-            game_rows = self._process_game(str(game_id), game_df)
+            # Determine game_outcome from the final score of this game
+            game_outcome = self._compute_game_outcome(game_df)
+            # Derive season from GAME_ID or from SEASON column if present
+            if "SEASON" in raw_df.columns:
+                season = str(raw_df.loc[raw_df["GAME_ID"] == game_id, "SEASON"].iloc[0])
+            else:
+                season = _season_from_game_id(str(game_id))
+
+            game_rows = self._process_game(str(game_id), season, game_outcome, game_df)
             rows.extend(game_rows)
 
         if not rows:
@@ -397,7 +407,7 @@ class PlayByPlayParser:
         result = pd.DataFrame(rows)
         out_path = self.processed_dir / "transitions.parquet"
         result.to_parquet(out_path, index=False)
-        logger.info("Saved %d transitions to %s", len(result), out_path)
+        logger.info("Saved %d possession records to %s", len(result), out_path)
         return result
 
     # ------------------------------------------------------------------
@@ -432,6 +442,17 @@ class PlayByPlayParser:
         ).clip(-SCORE_DIFF_CLIP, SCORE_DIFF_CLIP).astype(int)
         return df
 
+    def _compute_game_outcome(self, game_df: pd.DataFrame) -> int:
+        """
+        Return 1 if the home team won, 0 if the away team won.
+
+        Uses the score at the minimum seconds_remaining row (the latest
+        tracked event) as a proxy for the final game score.
+        """
+        final_row = game_df.loc[game_df["seconds_remaining"].idxmin()]
+        final_diff = int(final_row.get("score_differential", 0))
+        return 1 if final_diff > 0 else 0
+
     def _infer_possession(self, row: pd.Series, current_possession: int) -> int:
         """Heuristic: determine which team has the ball after this event."""
         etype = int(row.get("EVENTMSGTYPE", 0))
@@ -439,10 +460,8 @@ class PlayByPlayParser:
         away_desc = str(row.get("VISITORDESCRIPTION", "") or "")
 
         if etype == self._SHOT_MADE_TYPE:
-            # Possession flips after a make
             return 1 - current_possession
         if etype == self._SHOT_MISSED_TYPE:
-            # Possession changes if the *other* team rebounds (simplified heuristic)
             return current_possession  # assume same team until rebound
         if etype == self._REBOUND_TYPE:
             if home_desc:
@@ -453,7 +472,6 @@ class PlayByPlayParser:
         if etype == self._TURNOVER_TYPE:
             return 1 - current_possession
         if etype == self._FREE_THROW_TYPE:
-            # If last free throw made, possession flips; missed → check rebound
             desc = home_desc + away_desc
             if "1 of 1" in desc or "2 of 2" in desc or "3 of 3" in desc:
                 if "MISS" in desc.upper():
@@ -465,14 +483,13 @@ class PlayByPlayParser:
         """Map an event type to a strategic action label."""
         etype = int(row.get("EVENTMSGTYPE", 0))
         mapping = {
-            self._SHOT_MADE_TYPE: "shoot_make",
-            self._SHOT_MISSED_TYPE: "shoot_miss",
-            self._FREE_THROW_TYPE: "free_throw",
-            self._REBOUND_TYPE: "rebound",
-            self._TURNOVER_TYPE: "turnover",
-            self._FOUL_TYPE: "foul",
-            self._TIMEOUT_TYPE: "timeout",
-            self._PERIOD_END_TYPE: "period_end",
+            self._SHOT_MADE_TYPE:   "shoot",
+            self._SHOT_MISSED_TYPE: "shoot",
+            self._FREE_THROW_TYPE:  "free_throw",
+            self._REBOUND_TYPE:     "rebound",
+            self._TURNOVER_TYPE:    "turnover",
+            self._FOUL_TYPE:        "foul",
+            self._TIMEOUT_TYPE:     "timeout",
         }
         return mapping.get(etype, "other")
 
@@ -483,50 +500,38 @@ class PlayByPlayParser:
         )
         if "LOOSE BALL" in desc.upper() or "OFFENSIVE" in desc.upper():
             return min(MAX_FOULS_TO_GIVE, 2)
-        # Hard-code a default; real implementation would track per-team fouls
         return 1
 
-    def _process_game(self, game_id: str, df: pd.DataFrame) -> List[Dict]:
+    def _process_game(
+        self,
+        game_id: str,
+        season: str,
+        game_outcome: int,
+        df: pd.DataFrame,
+    ) -> List[Dict]:
         rows: List[Dict] = []
         possession = 1  # start with home team (simplification)
         fouls_to_give = 1
 
         events = df.sort_values("seconds_remaining", ascending=False).reset_index(drop=True)
 
-        for idx, row in events.iterrows():
+        for _, row in events.iterrows():
             sec = int(row["seconds_remaining"])
             score_diff = int(row["score_differential"])
-            action = self._classify_action(row)
+            action_taken = self._classify_action(row)
             next_possession = self._infer_possession(row, possession)
             next_fouls = self._fouls_remaining(row, possession)
-
-            # Look ahead for next state values
-            if idx + 1 < len(events):
-                next_row = events.iloc[idx + 1]
-                next_sec = int(next_row["seconds_remaining"])
-                next_diff = int(next_row["score_differential"])
-            else:
-                next_sec = 0
-                next_diff = score_diff
-
-            reward = 0.0
-            if action == "period_end":
-                reward = 1.0 if next_diff > 0 else (-1.0 if next_diff < 0 else 0.0)
 
             rows.append(
                 {
                     "game_id": game_id,
-                    "period": int(row.get("PERIOD", 4)),
+                    "season": season,
                     "seconds_remaining": sec,
                     "score_differential": score_diff,
                     "possession": possession,
                     "fouls_to_give": fouls_to_give,
-                    "action": action,
-                    "next_score_diff": next_diff,
-                    "next_seconds_remaining": next_sec,
-                    "next_possession": next_possession,
-                    "next_fouls_to_give": next_fouls,
-                    "reward": reward,
+                    "action_taken": action_taken,
+                    "game_outcome": game_outcome,
                 }
             )
             possession = next_possession
@@ -536,125 +541,15 @@ class PlayByPlayParser:
 
 
 # ---------------------------------------------------------------------------
-# Transition Matrix Builder
-# ---------------------------------------------------------------------------
-class TransitionMatrixBuilder:
-    """
-    Builds empirical transition probability matrices P(s'|s,a) from a
-    tidy transitions DataFrame.
-
-    The state space is a grid of all combinations of:
-        score_differential  : {-10, …, 10}  (condensed range for tractability)
-        seconds_remaining   : {0, 5, 10, …, 180}  (binned to 5-second slots)
-        possession          : {0, 1}
-        fouls_to_give       : {0, 1, 2}
-    """
-
-    SCORE_RANGE = list(range(-10, 11))           # 21 values
-    TIME_BINS   = list(range(0, 185, 5))          # 0, 5, …, 180  (37 values)
-    POSSESSIONS = [0, 1]
-    FOULS_RANGE = [0, 1, 2]
-
-    def __init__(self) -> None:
-        self._state_index: Dict[Tuple, int] = {}
-        self._all_states: List[Tuple] = []
-        self._build_state_index()
-
-    def _build_state_index(self) -> None:
-        idx = 0
-        for sd in self.SCORE_RANGE:
-            for sec in self.TIME_BINS:
-                for pos in self.POSSESSIONS:
-                    for ftg in self.FOULS_RANGE:
-                        key = (sd, sec, pos, ftg)
-                        self._state_index[key] = idx
-                        self._all_states.append(key)
-                        idx += 1
-
-    @property
-    def n_states(self) -> int:
-        return len(self._all_states)
-
-    def _bin_seconds(self, sec: int) -> int:
-        sec = max(0, min(sec, 180))
-        return int(round(sec / 5) * 5)
-
-    def _clip_score(self, sd: int) -> int:
-        return max(-10, min(10, sd))
-
-    def _state_key(self, row: pd.Series, prefix: str = "") -> Tuple:
-        sd = self._clip_score(int(row[f"{prefix}score_diff" if prefix else "score_differential"]))
-        sec = self._bin_seconds(
-            int(row[f"{prefix}seconds_remaining"])
-        )
-        pos = int(row[f"{prefix}possession"])
-        ftg = min(MAX_FOULS_TO_GIVE, int(row[f"{prefix}fouls_to_give"]))
-        return (sd, sec, pos, ftg)
-
-    def build(
-        self, transitions_df: pd.DataFrame
-    ) -> Dict[str, np.ndarray]:
-        """
-        Build transition matrices, one per action.
-
-        Returns
-        -------
-        dict mapping action_name → np.ndarray of shape (n_states, n_states),
-        where entry [i, j] is the empirical probability of transitioning from
-        state i to state j under that action.
-        """
-        if transitions_df.empty:
-            return {}
-
-        actions = transitions_df["action"].unique().tolist()
-        counts: Dict[str, np.ndarray] = {
-            a: np.zeros((self.n_states, self.n_states), dtype=np.float64)
-            for a in actions
-        }
-
-        for _, row in transitions_df.iterrows():
-            action = str(row["action"])
-            s_key = (
-                self._clip_score(int(row["score_differential"])),
-                self._bin_seconds(int(row["seconds_remaining"])),
-                int(row["possession"]) % 2,
-                min(MAX_FOULS_TO_GIVE, int(row["fouls_to_give"])),
-            )
-            sp_key = (
-                self._clip_score(int(row["next_score_diff"])),
-                self._bin_seconds(int(row["next_seconds_remaining"])),
-                int(row["next_possession"]) % 2,
-                min(MAX_FOULS_TO_GIVE, int(row["next_fouls_to_give"])),
-            )
-            if s_key in self._state_index and sp_key in self._state_index:
-                i = self._state_index[s_key]
-                j = self._state_index[sp_key]
-                counts[action][i, j] += 1
-
-        # Normalise rows to probabilities
-        matrices: Dict[str, np.ndarray] = {}
-        for action, mat in counts.items():
-            row_sums = mat.sum(axis=1, keepdims=True)
-            row_sums[row_sums == 0] = 1  # avoid division by zero
-            matrices[action] = mat / row_sums
-
-        return matrices
-
-    def state_index(self) -> Dict[Tuple, int]:
-        return dict(self._state_index)
-
-    def all_states(self) -> List[Tuple]:
-        return list(self._all_states)
-
-
-# ---------------------------------------------------------------------------
-# Convenience function
+# Convenience function for testing / offline development
 # ---------------------------------------------------------------------------
 def build_synthetic_transitions(n_samples: int = 5000, seed: int = 42) -> pd.DataFrame:
     """
-    Generate a synthetic transitions DataFrame with realistic NBA distributions.
+    Generate a synthetic historical possession log with realistic NBA distributions.
 
     Used for unit tests and offline development when the live API is unavailable.
+    The game_outcome is assigned deterministically based on the score_differential
+    at the time of the event (positive → home win).
     """
     rng = np.random.default_rng(seed)
     n = n_samples
@@ -664,96 +559,65 @@ def build_synthetic_transitions(n_samples: int = 5000, seed: int = 42) -> pd.Dat
     possessions = rng.integers(0, 2, size=n)
     fouls = rng.integers(0, 3, size=n)
     actions = rng.choice(
-        ["shoot_make", "shoot_miss", "free_throw", "rebound", "turnover", "foul", "timeout"],
+        ["shoot", "shoot", "free_throw", "rebound", "turnover", "foul", "timeout", "other"],
         size=n,
-        p=[0.22, 0.28, 0.15, 0.15, 0.08, 0.07, 0.05],
+        p=[0.22, 0.28, 0.15, 0.15, 0.08, 0.07, 0.03, 0.02],
     )
-
-    # Next state
-    delta_score = np.where(
-        actions == "shoot_make",
-        rng.choice([2, 3], size=n, p=[0.7, 0.3]),
-        0,
+    seasons = rng.choice(
+        ["2019-20", "2020-21", "2021-22", "2022-23", "2023-24"],
+        size=n,
     )
-    next_score_diffs = np.clip(score_diffs + delta_score, -10, 10)
-    next_seconds = np.maximum(0, seconds - rng.integers(4, 25, size=n))
-    next_possessions = np.where(
-        np.isin(actions, ["shoot_make", "turnover"]),
-        1 - possessions,
-        possessions,
-    )
-    next_fouls = np.minimum(MAX_FOULS_TO_GIVE, fouls)
-    rewards = np.where(seconds == 0, np.sign(score_diffs).astype(float), 0.0)
+    game_outcomes = np.where(score_diffs > 0, 1, 0)
 
     return pd.DataFrame(
         {
-            "game_id": [f"synthetic_{i}" for i in range(n)],
-            "period": 4,
+            "game_id": [f"synthetic_{i // 50}" for i in range(n)],
+            "season": seasons,
             "seconds_remaining": seconds,
             "score_differential": score_diffs,
             "possession": possessions,
-            "fouls_to_give": fouls,
-            "action": actions,
-            "next_score_diff": next_score_diffs,
-            "next_seconds_remaining": next_seconds,
-            "next_possession": next_possessions,
-            "next_fouls_to_give": next_fouls,
-            "reward": rewards,
+            "fouls_to_give": np.minimum(MAX_FOULS_TO_GIVE, fouls),
+            "action_taken": actions,
+            "game_outcome": game_outcomes,
         }
     )
 
 
 # ---------------------------------------------------------------------------
-# Empirical parameter extraction
+# Empirical parameter extraction (kept for backwards compatibility)
 # ---------------------------------------------------------------------------
 def compute_shooting_stats(transitions_df: pd.DataFrame) -> Dict[str, float]:
     """
-    Compute empirical shooting and possession statistics from a transitions DataFrame.
-
-    Parameters
-    ----------
-    transitions_df : pd.DataFrame
-        Output of :class:`PlayByPlayParser` (or :func:`build_synthetic_transitions`).
+    Compute basic shooting statistics from a historical possession log.
 
     Returns
     -------
     dict with keys:
-        ``fg_pct``        – overall field-goal percentage (makes / attempts)
-        ``ft_pct``        – free-throw percentage (estimated from FT events)
-        ``turnover_prob`` – turnover probability per possession
+        ``shoot_rate`` – fraction of events that are shot attempts
+        ``foul_rate``  – fraction of events that are fouls
     """
     if transitions_df.empty:
         return {}
 
     stats: Dict[str, float] = {}
-
-    actions = transitions_df["action"]
-    makes  = (actions == "shoot_make").sum()
-    misses = (actions == "shoot_miss").sum()
-    shots  = makes + misses
-    if shots > 0:
-        stats["fg_pct"] = float(makes / shots)
-
-    turnovers = (actions == "turnover").sum()
-    possessions = shots + turnovers + (actions == "foul").sum()
-    if possessions > 0:
-        stats["turnover_prob"] = float(turnovers / possessions)
-
+    total = len(transitions_df)
+    if total > 0:
+        actions = transitions_df.get("action_taken", pd.Series(dtype=str))
+        stats["shoot_rate"] = float((actions == "shoot").sum() / total)
+        stats["foul_rate"]  = float((actions == "foul").sum() / total)
     return stats
 
 
 def load_empirical_params(processed_dir: Path = PROCESSED_DIR) -> Dict[str, float]:
     """
-    Load ``transitions.parquet`` from *processed_dir* and return empirical
-    shooting statistics suitable for passing to
-    :meth:`~src.mdp_engine.TransitionModel.from_data`.
+    Load ``transitions.parquet`` from *processed_dir* and return basic
+    shooting statistics.
 
-    Returns an empty dict if the file does not exist (callers should fall back
-    to hardcoded defaults).
+    Returns an empty dict if the file does not exist.
     """
     transitions_path = processed_dir / "transitions.parquet"
     if not transitions_path.exists():
-        logger.debug("transitions.parquet not found; using default model parameters.")
+        logger.debug("transitions.parquet not found; no empirical params available.")
         return {}
     try:
         df = pd.read_parquet(transitions_path)
@@ -763,4 +627,3 @@ def load_empirical_params(processed_dir: Path = PROCESSED_DIR) -> Dict[str, floa
     except Exception as exc:
         logger.warning("Could not load empirical params from %s: %s", transitions_path, exc)
         return {}
-

@@ -16,7 +16,6 @@ from src.data_pipeline import (
     GameState,
     NBAPlayByPlayScraper,
     PlayByPlayParser,
-    TransitionMatrixBuilder,
     build_synthetic_transitions,
     FINAL_PERIOD_SECONDS,
     MAX_FOULS_TO_GIVE,
@@ -168,45 +167,25 @@ class TestPlayByPlayParser:
             # Home leads by 3
             assert (result["score_differential"] == 3).all()
 
+    def test_parse_output_columns(self, tmp_path):
+        """parse() should return the new flat historical log columns."""
+        raw = _make_raw_pbp(30)
+        parser = PlayByPlayParser(processed_dir=tmp_path)
+        result = parser.parse(raw)
+        if not result.empty:
+            required = {
+                "game_id", "season", "seconds_remaining", "score_differential",
+                "possession", "fouls_to_give", "action_taken", "game_outcome",
+            }
+            assert required.issubset(set(result.columns))
 
-# ---------------------------------------------------------------------------
-# TransitionMatrixBuilder
-# ---------------------------------------------------------------------------
-class TestTransitionMatrixBuilder:
-    def test_state_index_coverage(self):
-        builder = TransitionMatrixBuilder()
-        expected = (
-            len(TransitionMatrixBuilder.SCORE_RANGE)
-            * len(TransitionMatrixBuilder.TIME_BINS)
-            * len(TransitionMatrixBuilder.POSSESSIONS)
-            * len(TransitionMatrixBuilder.FOULS_RANGE)
-        )
-        assert builder.n_states == expected
-
-    def test_build_returns_probability_matrices(self):
-        df = build_synthetic_transitions(n_samples=2000, seed=7)
-        builder = TransitionMatrixBuilder()
-        matrices = builder.build(df)
-        assert len(matrices) > 0
-        for action, mat in matrices.items():
-            row_sums = mat.sum(axis=1)
-            # Every non-zero row must sum to ≈ 1
-            nonzero_rows = row_sums[row_sums > 1e-9]
-            np.testing.assert_allclose(nonzero_rows, 1.0, atol=1e-6,
-                                       err_msg=f"Action '{action}' rows don't sum to 1")
-
-    def test_build_on_empty_df(self):
-        builder = TransitionMatrixBuilder()
-        result = builder.build(pd.DataFrame())
-        assert result == {}
-
-    def test_build_matrix_shape(self):
-        df = build_synthetic_transitions(n_samples=500, seed=3)
-        builder = TransitionMatrixBuilder()
-        matrices = builder.build(df)
-        n = builder.n_states
-        for mat in matrices.values():
-            assert mat.shape == (n, n)
+    def test_parse_game_outcome_binary(self, tmp_path):
+        """game_outcome should be 0 or 1."""
+        raw = _make_raw_pbp(30)
+        parser = PlayByPlayParser(processed_dir=tmp_path)
+        result = parser.parse(raw)
+        if not result.empty:
+            assert set(result["game_outcome"].unique()).issubset({0, 1})
 
 
 # ---------------------------------------------------------------------------
@@ -221,10 +200,8 @@ class TestBuildSyntheticTransitions:
     def test_expected_columns(self):
         df = build_synthetic_transitions(n_samples=50)
         required = {
-            "game_id", "period", "seconds_remaining", "score_differential",
-            "possession", "fouls_to_give", "action",
-            "next_score_diff", "next_seconds_remaining",
-            "next_possession", "next_fouls_to_give", "reward",
+            "game_id", "season", "seconds_remaining", "score_differential",
+            "possession", "fouls_to_give", "action_taken", "game_outcome",
         }
         assert required.issubset(set(df.columns))
 
@@ -236,6 +213,10 @@ class TestBuildSyntheticTransitions:
     def test_possession_binary(self):
         df = build_synthetic_transitions(n_samples=200)
         assert set(df["possession"].unique()).issubset({0, 1})
+
+    def test_game_outcome_binary(self):
+        df = build_synthetic_transitions(n_samples=200)
+        assert set(df["game_outcome"].unique()).issubset({0, 1})
 
     def test_reproducibility(self):
         df1 = build_synthetic_transitions(seed=99)
