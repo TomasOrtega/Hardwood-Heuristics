@@ -153,18 +153,18 @@ class TransitionModel:
         next_sec = max(0, sec - time_cost_to)
         outcomes.append(((sd, next_sec, 1 - pos, ftg), self.p_turnover, 0.0))
 
-        # Foul drawn → two free throws
+        # Foul drawn → two free throws (clock stops; ~2 s for the foul itself)
         p_ft = self.p_foul_drawn
         ft_make_2 = self.ft_pct ** 2
         ft_make_1 = 2 * self.ft_pct * (1 - self.ft_pct)
         ft_miss_2 = (1 - self.ft_pct) ** 2
-        next_sec_ft = max(0, sec - 12)
+        next_sec_ft = max(0, sec - 2)
         # Make both
         new_sd = np.clip(sd + sign * 2, -10, 10)
         outcomes.append(((int(new_sd), next_sec_ft, 1 - pos, ftg), p_ft * ft_make_2, 0.0))
         # Make one
         new_sd = np.clip(sd + sign * 1, -10, 10)
-        outcomes.append(((int(new_sd), next_sec_ft, pos, ftg), p_ft * ft_make_1, 0.0))
+        outcomes.append(((int(new_sd), next_sec_ft, 1 - pos, ftg), p_ft * ft_make_1, 0.0))
         # Miss both
         outcomes.append(((sd, next_sec_ft, 1 - pos, ftg), p_ft * ft_miss_2, 0.0))
 
@@ -173,13 +173,14 @@ class TransitionModel:
     def foul_transitions(
         self,
         state: StateKey,
-        time_cost: int = 8,
+        time_cost: int = 2,
     ) -> List[Tuple[StateKey, float, float]]:
         """
         Return [(next_state, probability, reward)] for intentional foul.
         The *defending* team fouls the opponent who shoots two free throws.
-        Possession *does not change* after free throws (they retain the ball
-        only if a miss is rebounded, simplified here).
+        Missed free throws turn over to the defense (~85% defensive rebound rate).
+        ``time_cost`` defaults to 2 s because an intentional foul stops the clock
+        almost immediately; only the brief moment before the whistle is consumed.
         """
         sd, sec, pos, ftg = state
         sign = 1 if pos == 1 else -1   # fouled team's perspective
@@ -195,11 +196,11 @@ class TransitionModel:
         # Make both → possession flips
         new_sd = np.clip(sd + sign * 2, -10, 10)
         outcomes.append(((int(new_sd), next_sec, 1 - pos, new_ftg), ft_make_2, 0.0))
-        # Make one → miss rebound retained by fouled team (simplified)
+        # Make one → defense rebounds missed second FT
         new_sd = np.clip(sd + sign * 1, -10, 10)
-        outcomes.append(((int(new_sd), next_sec, pos, new_ftg), ft_make_1, 0.0))
-        # Miss both → fouled team rebound
-        outcomes.append(((sd, next_sec, pos, new_ftg), ft_miss_2, 0.0))
+        outcomes.append(((int(new_sd), next_sec, 1 - pos, new_ftg), ft_make_1, 0.0))
+        # Miss both → defense rebounds
+        outcomes.append(((sd, next_sec, 1 - pos, new_ftg), ft_miss_2, 0.0))
 
         return self._normalize(outcomes)
 
