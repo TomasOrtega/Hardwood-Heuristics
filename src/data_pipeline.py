@@ -602,3 +602,66 @@ def build_synthetic_transitions(n_samples: int = 5000, seed: int = 42) -> pd.Dat
             "reward": rewards,
         }
     )
+
+
+# ---------------------------------------------------------------------------
+# Empirical parameter extraction
+# ---------------------------------------------------------------------------
+def compute_shooting_stats(transitions_df: pd.DataFrame) -> Dict[str, float]:
+    """
+    Compute empirical shooting and possession statistics from a transitions DataFrame.
+
+    Parameters
+    ----------
+    transitions_df : pd.DataFrame
+        Output of :class:`PlayByPlayParser` (or :func:`build_synthetic_transitions`).
+
+    Returns
+    -------
+    dict with keys:
+        ``fg_pct``        – overall field-goal percentage (makes / attempts)
+        ``ft_pct``        – free-throw percentage (estimated from FT events)
+        ``turnover_prob`` – turnover probability per possession
+    """
+    if transitions_df.empty:
+        return {}
+
+    stats: Dict[str, float] = {}
+
+    actions = transitions_df["action"]
+    makes  = (actions == "shoot_make").sum()
+    misses = (actions == "shoot_miss").sum()
+    shots  = makes + misses
+    if shots > 0:
+        stats["fg_pct"] = float(makes / shots)
+
+    turnovers = (actions == "turnover").sum()
+    possessions = shots + turnovers + (actions == "foul").sum()
+    if possessions > 0:
+        stats["turnover_prob"] = float(turnovers / possessions)
+
+    return stats
+
+
+def load_empirical_params(processed_dir: Path = PROCESSED_DIR) -> Dict[str, float]:
+    """
+    Load ``transitions.parquet`` from *processed_dir* and return empirical
+    shooting statistics suitable for passing to
+    :meth:`~src.mdp_engine.TransitionModel.from_data`.
+
+    Returns an empty dict if the file does not exist (callers should fall back
+    to hardcoded defaults).
+    """
+    transitions_path = processed_dir / "transitions.parquet"
+    if not transitions_path.exists():
+        logger.debug("transitions.parquet not found; using default model parameters.")
+        return {}
+    try:
+        df = pd.read_parquet(transitions_path)
+        params = compute_shooting_stats(df)
+        logger.info("Loaded empirical params from %s: %s", transitions_path, params)
+        return params
+    except Exception as exc:
+        logger.warning("Could not load empirical params from %s: %s", transitions_path, exc)
+        return {}
+

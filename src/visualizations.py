@@ -214,25 +214,12 @@ def plot_two_for_one_ev_curve(
 
 
 # ---------------------------------------------------------------------------
-# Convenience: run both plots
+# Per-theorem plot helpers
 # ---------------------------------------------------------------------------
-def generate_all_plots() -> List[Path]:
-    """
-    Run both MDP theorems and save all plots to ``docs/assets/images/``.
-
-    Pre-computed sweep data is loaded from ``data/processed/`` when available
-    (i.e. after running ``python -m src.collect_data``).  If the saved files
-    are not found the sweeps are recomputed on the fly.
-
-    Returns
-    -------
-    List of Path objects for all generated image files.
-    """
-    saved_paths: List[Path] = []
-
-    # --- Theorem 2: Foul Up 3 heatmap ---
-    t2_grid_path = PROCESSED_DIR / "theorem2_grid.npy"
-    t2_meta_path = PROCESSED_DIR / "theorem2_metadata.json"
+def _plot_theorem2(processed_dir: Path = PROCESSED_DIR, images_dir: Path = IMAGES_DIR) -> Path:
+    """Load (or compute) Theorem 2 data and save the Foul-Up-3 heatmap."""
+    t2_grid_path = processed_dir / "theorem2_grid.npy"
+    t2_meta_path = processed_dir / "theorem2_metadata.json"
     if t2_grid_path.exists() and t2_meta_path.exists():
         logger.info("Loading pre-computed Theorem 2 data from %s", t2_grid_path)
         grid = np.load(t2_grid_path)
@@ -247,10 +234,15 @@ def generate_all_plots() -> List[Path]:
         fg3_values = [round(x, 2) for x in np.arange(0.28, 0.46, 0.02)]
         t2 = Theorem2FoulUp3()
         grid = t2.sweep(time_values=time_values, fg3_pct_values=fg3_values)
-    saved_paths.append(plot_foul_up_3_heatmap(grid, time_values, fg3_values))
+    return plot_foul_up_3_heatmap(
+        grid, time_values, fg3_values,
+        out_path=images_dir / "foul_up_3_heatmap.png",
+    )
 
-    # --- Theorem 1: 2-for-1 EV curve ---
-    t1_sweep_path = PROCESSED_DIR / "theorem1_sweep.json"
+
+def _plot_theorem1(processed_dir: Path = PROCESSED_DIR, images_dir: Path = IMAGES_DIR) -> Path:
+    """Load (or compute) Theorem 1 data and save the 2-for-1 EV curve."""
+    t1_sweep_path = processed_dir / "theorem1_sweep.json"
     if t1_sweep_path.exists():
         logger.info("Loading pre-computed Theorem 1 data from %s", t1_sweep_path)
         with open(t1_sweep_path) as f:
@@ -260,8 +252,42 @@ def generate_all_plots() -> List[Path]:
         logger.info("Computing Theorem 1 sweep…")
         t1 = Theorem1TwoForOne()
         sweep = t1.sweep_time(time_range=list(range(10, 65, 2)))
-    saved_paths.append(plot_two_for_one_ev_curve(sweep))
+    return plot_two_for_one_ev_curve(sweep, out_path=images_dir / "two_for_one_ev_curve.png")
 
+
+# ---------------------------------------------------------------------------
+# Registry – maps theorem key → plot helper.
+# Add new theorems here; each function must accept (processed_dir, images_dir).
+# ---------------------------------------------------------------------------
+_PLOTTERS: dict = {
+    "theorem1": _plot_theorem1,
+    "theorem2": _plot_theorem2,
+}
+
+
+# ---------------------------------------------------------------------------
+# Convenience: generate all plots
+# ---------------------------------------------------------------------------
+def generate_all_plots() -> List[Path]:
+    """
+    Generate plots for every registered theorem and save them to
+    ``docs/assets/images/``.
+
+    Pre-computed sweep data is loaded from ``data/processed/`` when available
+    (i.e. after running ``python -m src.collect_data``).  If the saved files
+    are not found the sweeps are recomputed on the fly.
+
+    To add a new theorem, implement a ``_plot_<key>`` helper above and add it
+    to :data:`_PLOTTERS`.
+
+    Returns
+    -------
+    List of Path objects for all generated image files.
+    """
+    saved_paths: List[Path] = []
+    for key, plotter in _PLOTTERS.items():
+        logger.info("Generating plot for %s…", key)
+        saved_paths.append(plotter(PROCESSED_DIR, IMAGES_DIR))
     return saved_paths
 
 
@@ -270,3 +296,4 @@ if __name__ == "__main__":
     paths = generate_all_plots()
     for p in paths:
         print(f"Saved: {p}")
+
