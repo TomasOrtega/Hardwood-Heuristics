@@ -3,7 +3,7 @@ scrape_nba_data.py
 ==================
 Standalone scraping script that loads real NBA play-by-play data from the
 Kaggle basketball dataset (wyattowalsh/basketball), parses each event into
-discrete MDP state transitions, and saves the result to
+a flat historical possession log, and saves the result to
 ``data/processed/transitions.parquet``.
 
 The dataset is read from ``basketball.sqlite`` in ``data/raw/``.  If the file
@@ -64,7 +64,7 @@ def scrape(
 ) -> Path:
     """
     Load NBA play-by-play data from the Kaggle basketball dataset and save
-    MDP transitions to *processed_dir*.
+    a flat historical possession log to *processed_dir*.
 
     Parameters
     ----------
@@ -109,7 +109,7 @@ def scrape(
         logger.warning("No raw play-by-play data available; transitions file not written.")
         return processed_dir / "transitions.parquet"
 
-    logger.info("Parsing %d raw events into MDP transitions…", len(raw_df))
+    logger.info("Parsing %d raw events into historical possession records…", len(raw_df))
     parser = PlayByPlayParser(processed_dir=processed_dir)
     transitions_df = parser.parse(raw_df)
 
@@ -118,7 +118,7 @@ def scrape(
         logger.warning("Parser returned no transitions; output file not written.")
     else:
         logger.info(
-            "Scraping complete: %d transitions parsed and saved to %s",
+            "Scraping complete: %d possession records parsed and saved to %s",
             len(transitions_df),
             out_path,
         )
@@ -129,7 +129,7 @@ def scrape(
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         prog="python -m src.scrape_nba_data",
-        description="Scrape NBA play-by-play data and build MDP state transitions.",
+        description="Scrape NBA play-by-play data and build a flat historical possession log.",
     )
     parser.add_argument(
         "--seasons",

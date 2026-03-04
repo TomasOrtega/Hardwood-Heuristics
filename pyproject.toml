@@ -5,12 +5,12 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "hardwood-heuristics"
 version = "0.1.0"
-description = "NBA Folk Theorems: Empirical MDP analysis of late-game basketball strategies"
+description = "NBA Folk Theorems: Data-driven historical analysis of late-game basketball strategies"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
 authors = [{ name = "Hardwood Heuristics Team" }]
-keywords = ["nba", "basketball", "markov", "mdp", "statistics"]
+keywords = ["nba", "basketball", "historical-analysis", "statistics", "pandas"]
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
@@ -23,7 +23,6 @@ dependencies = [
     "numpy>=1.26",
     "scipy>=1.11",
     "pyarrow>=14.0",
-    "pymdptoolbox==4.0b3",
     "matplotlib>=3.8",
     "seaborn>=0.13",
     "mkdocs-material>=9.5",
