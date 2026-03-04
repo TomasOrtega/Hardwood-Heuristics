@@ -1,25 +1,30 @@
 """
 scrape_nba_data.py
 ==================
-Standalone scraping script that fetches real NBA play-by-play data via the
-``nba_api`` library, parses each event into discrete MDP state transitions, and
-saves the result to ``data/processed/transitions.parquet``.
+Standalone scraping script that loads real NBA play-by-play data from the
+Kaggle basketball dataset (wyattowalsh/basketball), parses each event into
+discrete MDP state transitions, and saves the result to
+``data/processed/transitions.parquet``.
+
+The dataset is read from ``basketball.sqlite`` in ``data/raw/``.  If the file
+is absent it is downloaded automatically via the Kaggle API (requires
+``KAGGLE_USERNAME`` and ``KAGGLE_KEY`` environment variables or a
+``~/.kaggle/kaggle.json`` credentials file).
 
 Run this **once** (or whenever you want to refresh the dataset) before running
-``src/collect_data.py``.  Subsequent runs are fast because raw game files are
-cached in ``data/raw/``.
+``src/collect_data.py``.
 
 Usage
 -----
 ::
 
-    # Scrape the default 5 seasons (2019-20 through 2023-24)
+    # Load the default 5 seasons (2019-20 through 2023-24)
     uv run python -m src.scrape_nba_data
 
-    # Scrape specific seasons
+    # Load specific seasons
     uv run python -m src.scrape_nba_data --seasons 2022-23 2023-24
 
-    # Dry-run: parse only, skip API calls (uses cached raw files)
+    # Dry-run: parse only, skip database queries (uses cached raw files)
     uv run python -m src.scrape_nba_data --dry-run
 
     # Write output to a custom directory
@@ -58,7 +63,8 @@ def scrape(
     dry_run: bool = False,
 ) -> Path:
     """
-    Scrape NBA play-by-play data and save MDP transitions to *processed_dir*.
+    Load NBA play-by-play data from the Kaggle basketball dataset and save
+    MDP transitions to *processed_dir*.
 
     Parameters
     ----------
@@ -66,11 +72,12 @@ def scrape(
         List of season strings (e.g. ``["2022-23", "2023-24"]``).  Defaults
         to :data:`DEFAULT_SEASONS`.
     raw_dir:
-        Directory for cached raw per-game Parquet files.
+        Directory containing ``basketball.sqlite`` (downloaded automatically
+        if absent).
     processed_dir:
         Directory where ``transitions.parquet`` is written.
     dry_run:
-        If ``True``, skip live API calls and only process whatever raw files
+        If ``True``, skip database queries and only process whatever raw files
         are already cached locally.
 
     Returns
@@ -146,12 +153,12 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         type=Path,
         default=RAW_DIR,
         metavar="DIR",
-        help="Directory for cached raw per-game files (default: data/raw/).",
+        help="Directory containing basketball.sqlite (default: data/raw/).",
     )
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="Skip live API calls; parse only locally cached raw files.",
+        help="Skip database queries; parse only locally cached raw files.",
     )
     parser.add_argument(
         "--log-level",

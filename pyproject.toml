@@ -18,7 +18,7 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Mathematics",
 ]
 dependencies = [
-    "nba_api>=1.4",
+    "kaggle>=1.6",
     "pandas>=2.0",
     "numpy>=1.26",
     "scipy>=1.11",
