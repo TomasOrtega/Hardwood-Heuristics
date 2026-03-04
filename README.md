@@ -22,7 +22,8 @@ This project is built as a standard, production-ready Python package and uses [u
 
 **1. Clone the repository**
 ```bash
-the usual
+git clone https://github.com/TomasOrtega/Hardwood-Heuristics.git
+cd Hardwood-Heuristics
 ```
 
 **2. Install uv** (if not already installed)
