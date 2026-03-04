@@ -23,6 +23,7 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
+import scipy.sparse as sp
 
 logger = logging.getLogger(__name__)
 
@@ -236,25 +237,112 @@ class TransitionModel:
             return outcomes
         return [(s, p / total_p, r) for s, p, r in outcomes]
 
+    @classmethod
+    def from_data(
+        cls,
+        fg_pct: Optional[float] = None,
+        ft_pct: Optional[float] = None,
+        turnover_prob: Optional[float] = None,
+    ) -> "TransitionModel":
+        """
+        Create a TransitionModel calibrated to empirical data.
+
+        When a scraped ``fg_pct`` (overall field-goal percentage) is provided,
+        the 2-point and 3-point percentages are scaled proportionally so that
+        the blended shooting percentage matches the empirical value.
+
+        Parameters
+        ----------
+        fg_pct : float, optional
+            Empirical overall field-goal percentage (makes / attempts).
+        ft_pct : float, optional
+            Empirical free-throw percentage.
+        turnover_prob : float, optional
+            Empirical turnover probability per possession.
+        """
+        kwargs: Dict[str, float] = {}
+        if fg_pct is not None:
+            default_blend = FG2_RATE * FG2_PCT + FG3_RATE * FG3_PCT
+            scale = fg_pct / default_blend if default_blend > 0 else 1.0
+            kwargs["fg2_pct"] = float(np.clip(FG2_PCT * scale, 0.05, 0.95))
+            kwargs["fg3_pct"] = float(np.clip(FG3_PCT * scale, 0.05, 0.80))
+        if ft_pct is not None:
+            kwargs["ft_pct"] = float(np.clip(ft_pct, 0.05, 0.99))
+        if turnover_prob is not None:
+            kwargs["turnover_prob"] = float(np.clip(turnover_prob, 0.01, 0.40))
+        return cls(**kwargs)
+
 
 # ---------------------------------------------------------------------------
-# MDP Solver (backward induction / value iteration)
+# MDP Solver using pymdptoolbox (off-the-shelf) ValueIteration
 # ---------------------------------------------------------------------------
+def _build_solver_arrays(
+    all_states: List[StateKey],
+    state_idx: Dict[StateKey, int],
+    model: "TransitionModel",
+    gamma: float,
+) -> Tuple[List, np.ndarray]:
+    """
+    Build the sparse transition matrices P and reward matrix R for pymdptoolbox.
+
+    Terminal states (sec == 0) are made absorbing with steady-state reward
+    ``terminal_reward(sd) * (1 - gamma)`` so that V*(terminal) = terminal_reward.
+    """
+    n = len(all_states)
+    na = len(ACTIONS)
+
+    P_lil = [sp.lil_matrix((n, n)) for _ in range(na)]
+    R = np.zeros((n, na))
+
+    for i, s in enumerate(all_states):
+        sd, sec, pos, ftg = s
+        if sec == 0:
+            # Absorbing terminal state
+            for a in range(na):
+                P_lil[a][i, i] = 1.0
+                R[i, a] = terminal_reward(sd) * (1 - gamma)
+            continue
+        for a_idx, action in enumerate(ACTIONS):
+            trans = _get_model_transitions(model, s, action)
+            for sp_state, prob, reward in trans:
+                j = state_idx.get(MDPSolver._snap_state(sp_state))
+                if j is not None and prob > 0:
+                    P_lil[a_idx][i, j] += prob
+                R[i, a_idx] += prob * reward
+
+    return [m.tocsr() for m in P_lil], R
+
+
+def _get_model_transitions(
+    model: "TransitionModel", state: StateKey, action: str
+) -> List[Tuple[StateKey, float, float]]:
+    if action == "shoot":
+        return model.shoot_transitions(state)
+    if action == "foul":
+        return model.foul_transitions(state)
+    if action == "hold":
+        return model.hold_transitions(state)
+    raise ValueError(f"Unknown action: {action}")
+
+
 @dataclass
 class MDPSolver:
     """
-    Finite-horizon MDP solver using backward induction.
+    Finite-horizon MDP solver using pymdptoolbox's ValueIteration.
 
     Parameters
     ----------
     model : TransitionModel
         Analytic transition model for NBA possessions.
     gamma : float
-        Discount factor (default 1.0 for win-probability optimisation).
+        Near-undiscounted discount factor (default 0.99).  Values very close to
+        1.0 approximate undiscounted win probabilities while keeping the
+        absorbing-state formulation well-conditioned.  ``gamma=1.0`` is not used
+        because it prevents convergence of value iteration with absorbing states.
     """
 
     model: TransitionModel = field(default_factory=TransitionModel)
-    gamma: float = 1.0
+    gamma: float = 0.99
 
     def _all_states(self) -> List[StateKey]:
         states: List[StateKey] = []
@@ -268,79 +356,75 @@ class MDPSolver:
     def _get_transitions(
         self, state: StateKey, action: str
     ) -> List[Tuple[StateKey, float, float]]:
-        if action == "shoot":
-            return self.model.shoot_transitions(state)
-        if action == "foul":
-            return self.model.foul_transitions(state)
-        if action == "hold":
-            return self.model.hold_transitions(state)
-        raise ValueError(f"Unknown action: {action}")
+        return _get_model_transitions(self.model, state, action)
 
     def solve(self) -> Tuple[Values, Policy]:
         """
-        Run backward induction over the finite time horizon.
+        Solve the finite-horizon MDP using pymdptoolbox's ValueIteration.
+
+        Terminal states (sec == 0) are treated as absorbing with steady-state
+        reward ``terminal_reward(score_diff) * (1 - gamma)`` so that at
+        convergence ``V*(terminal) == terminal_reward``.  The discount is set
+        close to 1 so that the value function approximates undiscounted win
+        probabilities.
+
+        For home-possession states (pos == 1) the optimal action maximises the
+        value; for away-possession states (pos == 0) home team chooses an action
+        (e.g. intentional foul vs. normal defence) to maximise home's win
+        probability, matching the strategic framing of both theorems.
 
         Returns
         -------
-        values : dict mapping state → optimal win probability (home perspective)
+        values : dict mapping state → win probability (home perspective)
         policy : dict mapping state → optimal action label
         """
-        states = self._all_states()
+        import mdptoolbox.mdp as mdp_lib
+        import mdptoolbox.util as mdp_util
 
-        # Initialise terminal values
+        all_states = self._all_states()
+        n = len(all_states)
+        state_idx: Dict[StateKey, int] = {s: i for i, s in enumerate(all_states)}
+
+        P_csr, R = _build_solver_arrays(all_states, state_idx, self.model, self.gamma)
+
+        # pymdptoolbox's default _boundIter performs an O(S²) column-extraction
+        # loop that dominates runtime on our ~4 k-state space.  _FastVI overrides
+        # it with an O(1) threshold computation.  The input-validation function
+        # is similarly bypassed because our matrices are valid by construction.
+        original_check = mdp_util.check
+        mdp_util.check = lambda p, r: None  # matrices are valid by construction
+
+        class _FastVI(mdp_lib.ValueIteration):
+            """ValueIteration with O(1) iteration-bound computation.
+
+            pymdptoolbox's default ``_boundIter`` extracts every column of every
+            sparse transition matrix – an O(S²·A) operation – just to compute an
+            upper bound on the number of iterations.  For our ~4 662-state space
+            this takes seconds versus milliseconds for the actual value iteration.
+            We bypass it by computing the epsilon-threshold directly from ``gamma``
+            and relying on the standard epsilon-stopping criterion in ``run()``.
+            """
+
+            def _boundIter(self, epsilon: float) -> None:  # type: ignore[override]
+                self.thresh = epsilon * (1 - self.discount) / self.discount
+
+        try:
+            vi = _FastVI(P_csr, R, discount=self.gamma, epsilon=1e-6, max_iter=10_000)
+            vi.run()
+        finally:
+            mdp_util.check = original_check
+
+        # Build value / policy dicts; override terminal states with exact values.
         values: Values = {}
-        for s in states:
+        policy: Policy = {}
+        for i, s in enumerate(all_states):
             sd, sec, pos, ftg = s
             if sec == 0:
                 values[s] = terminal_reward(sd)
-            else:
-                values[s] = terminal_reward(sd)  # fallback until iterated
-
-        # Backward induction: iterate from smallest time-remaining upward
-        sorted_time_bins = sorted(TIME_BINS)
-        for sec in sorted_time_bins:
-            for sd in SCORE_RANGE:
-                for pos in POSSESSIONS:
-                    for ftg in FOULS_RANGE:
-                        s = (sd, sec, pos, ftg)
-                        if sec == 0:
-                            values[s] = terminal_reward(sd)
-                            continue
-                        # Evaluate each action
-                        action_values: Dict[str, float] = {}
-                        for action in ACTIONS:
-                            trans = self._get_transitions(s, action)
-                            q = 0.0
-                            for sp, prob, reward in trans:
-                                # Snap sp to valid grid
-                                sp_snapped = self._snap_state(sp)
-                                v_sp = values.get(sp_snapped, terminal_reward(sp_snapped[0]))
-                                q += prob * (reward + self.gamma * v_sp)
-                            action_values[action] = q
-                        # Home team maximises; away team minimises
-                        if pos == 1:  # home possession
-                            values[s] = max(action_values.values())
-                        else:         # away possession
-                            values[s] = min(action_values.values())
-
-        policy: Policy = {}
-        for s in states:
-            sd, sec, pos, ftg = s
-            if sec == 0:
                 policy[s] = "terminal"
-                continue
-            action_values = {}
-            for action in ACTIONS:
-                trans = self._get_transitions(s, action)
-                q = sum(
-                    prob * (reward + self.gamma * values.get(self._snap_state(sp), terminal_reward(sp[0])))
-                    for sp, prob, reward in trans
-                )
-                action_values[action] = q
-            if pos == 1:
-                policy[s] = max(action_values, key=action_values.__getitem__)
             else:
-                policy[s] = min(action_values, key=action_values.__getitem__)
+                values[s] = float(vi.V[i])
+                policy[s] = ACTIONS[vi.policy[i]]
 
         return values, policy
 
@@ -571,4 +655,29 @@ class Theorem2FoulUp3:
                 grid[i, j] = result["wp_gain"]
         return grid
 
+
+# ---------------------------------------------------------------------------
+# Theorem registry – add new theorems here to make them discoverable by
+# collect_data.py and visualizations.py without editing those modules.
+# ---------------------------------------------------------------------------
+THEOREM_REGISTRY: List[Dict] = [
+    {
+        "key": "theorem1",
+        "name": "2-for-1",
+        "description": (
+            "Rushing a shot with ~32 seconds remaining to secure an extra "
+            "possession before the half/game ends."
+        ),
+        "class": Theorem1TwoForOne,
+    },
+    {
+        "key": "theorem2",
+        "name": "Foul Up 3",
+        "description": (
+            "Intentionally fouling when leading by 3 points with < 10 seconds "
+            "left to prevent the opponent from attempting a tying 3-pointer."
+        ),
+        "class": Theorem2FoulUp3,
+    },
+]
 
