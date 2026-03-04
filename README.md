@@ -43,13 +43,30 @@ uv sync --extra dev
 The repository is modularized into data collection, MDP solving, and visualization generation.
 Data is collected **once** and saved to `data/processed/`, so subsequent visualization runs are fast.
 
-**Step 1 – Collect and save data (run once)**
+**Step 1 – Scrape real NBA play-by-play data (run once)**
+```bash
+uv run python -m src.scrape_nba_data
+```
+Fetches play-by-play data from the NBA Stats API for the last 5 seasons and saves
+MDP state transitions to `data/processed/transitions.parquet`.  Raw per-game files
+are cached in `data/raw/` so interrupted runs can resume cheaply.
+
+```bash
+# Scrape specific seasons only
+uv run python -m src.scrape_nba_data --seasons 2022-23 2023-24
+
+# Dry-run: parse only locally cached raw files (no network calls)
+uv run python -m src.scrape_nba_data --dry-run
+```
+
+**Step 2 – Collect and save MDP sweep data (run once)**
 ```bash
 uv run python -m src.collect_data
 ```
-This computes the MDP sweep results and writes them to `data/processed/`.
+Computes the MDP sweep results (calibrated to the scraped data when available)
+and writes them to `data/processed/`.
 
-**Step 2 – Generate the Research Visualizations**
+**Step 3 – Generate the Research Visualizations**
 ```bash
 uv run python -m src.visualizations
 ```
@@ -70,6 +87,7 @@ Navigate to `http://127.0.0.1:8000/` in your browser to view the site.
 
 ## 🏗️ Repository Structure
 
+* `src/scrape_nba_data.py`: Standalone scraping script. Fetches real NBA play-by-play data from the NBA Stats API, parses it into MDP state transitions, and saves `data/processed/transitions.parquet`.
 * `src/collect_data.py`: One-time data-collection script. Runs the MDP sweeps and saves results to `data/processed/`.
 * `src/data_pipeline.py`: Object-oriented scraper using `nba_api`, featuring exponential backoff, caching, and a parser to convert raw event strings into discrete MDP state transitions.
 * `src/mdp_engine.py`: The mathematical core. Implements a finite-horizon MDP solver using backward induction and defines the canonical simulation harnesses for the theorems.
