@@ -128,9 +128,9 @@ def _write_theorem2_data(
     wp_foul_grid    = np.full((n_t, n_f), 0.90)
     wp_no_foul_grid = wp_foul_grid - gain_grid
 
-    np.save(tmp_path / "theorem2_grid.npy",          gain_grid)
-    np.save(tmp_path / "theorem2_wp_foul_grid.npy",    wp_foul_grid)
-    np.save(tmp_path / "theorem2_wp_no_foul_grid.npy", wp_no_foul_grid)
+    np.savetxt(tmp_path / "theorem2_grid.csv",          gain_grid,    delimiter=",")
+    np.savetxt(tmp_path / "theorem2_wp_foul_grid.csv",    wp_foul_grid, delimiter=",")
+    np.savetxt(tmp_path / "theorem2_wp_no_foul_grid.csv", wp_no_foul_grid, delimiter=",")
     with open(tmp_path / "theorem2_metadata.json", "w") as f:
         json.dump({"time_values": time_values, "fg3_pct_values": fg3_values}, f)
 
@@ -341,8 +341,8 @@ class TestGenerateTheorem2Doc:
         """Without individual WP grids the code reconstructs using gain grid + neutral default."""
         _write_theorem2_data(tmp_path)
         # Remove the individual WP grid files to trigger the fallback path.
-        (tmp_path / "theorem2_wp_foul_grid.npy").unlink()
-        (tmp_path / "theorem2_wp_no_foul_grid.npy").unlink()
+        (tmp_path / "theorem2_wp_foul_grid.csv").unlink()
+        (tmp_path / "theorem2_wp_no_foul_grid.csv").unlink()
         out = _generate_theorem2_doc(processed_dir=tmp_path, docs_dir=tmp_path)
         assert out.exists()
 

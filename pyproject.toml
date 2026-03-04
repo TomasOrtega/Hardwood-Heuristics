@@ -25,7 +25,7 @@ dependencies = [
     "pyarrow>=14.0",
     "matplotlib>=3.8",
     "seaborn>=0.13",
-    "mkdocs-material>=9.5",
+    "zensical>=0.0.24",
     "requests>=2.31",
 ]
 
