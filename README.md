@@ -43,13 +43,15 @@ uv sync --extra dev
 The repository is modularized into data collection, MDP solving, and visualization generation.
 Data is collected **once** and saved to `data/processed/`, so subsequent visualization runs are fast.
 
-**Step 1 – Scrape real NBA play-by-play data (run once)**
+**Step 1 – Load real NBA play-by-play data (run once)**
 ```bash
 uv run python -m src.scrape_nba_data
 ```
-Fetches play-by-play data from the NBA Stats API for the last 5 seasons and saves
-MDP state transitions to `data/processed/transitions.parquet`.  Raw per-game files
-are cached in `data/raw/` so interrupted runs can resume cheaply.
+Loads play-by-play data from the [Kaggle basketball dataset](https://www.kaggle.com/datasets/wyattowalsh/basketball) for the last 5 seasons and saves
+MDP state transitions to `data/processed/transitions.parquet`.  The dataset
+is read from `basketball.sqlite` in `data/raw/` and downloaded automatically
+via the Kaggle API if absent (requires `KAGGLE_USERNAME` and `KAGGLE_KEY`
+environment variables or a `~/.kaggle/kaggle.json` credentials file).
 
 ```bash
 # Scrape specific seasons only
@@ -89,7 +91,7 @@ Navigate to `http://127.0.0.1:8000/` in your browser to view the site.
 
 * `src/scrape_nba_data.py`: Standalone scraping script. Fetches real NBA play-by-play data from the NBA Stats API, parses it into MDP state transitions, and saves `data/processed/transitions.parquet`.
 * `src/collect_data.py`: One-time data-collection script. Runs the MDP sweeps and saves results to `data/processed/`.
-* `src/data_pipeline.py`: Object-oriented scraper using `nba_api`, featuring exponential backoff, caching, and a parser to convert raw event strings into discrete MDP state transitions.
+* `src/data_pipeline.py`: Object-oriented data loader using the Kaggle basketball dataset, featuring caching and a parser to convert raw event strings into discrete MDP state transitions.
 * `src/mdp_engine.py`: The mathematical core. Implements a finite-horizon MDP solver using backward induction and defines the canonical simulation harnesses for the theorems.
 * `src/visualizations.py`: Output generators using `matplotlib` and `seaborn` to create publication-ready decision boundary plots. Loads pre-saved data from `data/processed/` when available.
 * `tests/`: Unit tests for the data pipeline, transition builders, and Bellman solvers.

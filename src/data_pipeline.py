@@ -1,9 +1,10 @@
 """
 data_pipeline.py
 ================
-Scrapes NBA play-by-play data via the ``nba_api`` library, cleans and parses
-each event, then converts the chronological log into a discrete MDP state
-space and empirical transition-probability matrices.
+Loads NBA play-by-play data from the Kaggle basketball dataset
+(wyattowalsh/basketball), cleans and parses each event, then converts
+the chronological log into a discrete MDP state space and empirical
+transition-probability matrices.
 
 State representation
 --------------------
@@ -40,7 +41,6 @@ PROCESSED_DIR = DATA_DIR / "processed"
 FINAL_PERIOD_SECONDS = 180          # last 3 minutes of regulation / OT
 SCORE_DIFF_CLIP = 30                # clip extreme leads for state compression
 MAX_FOULS_TO_GIVE = 2
-RATE_LIMIT_SLEEP = 2             # seconds between API calls
 MAX_RETRIES = 5
 BACKOFF_BASE = 2.0                  # exponential back-off multiplier
 
@@ -127,15 +127,45 @@ def _period_clock_to_seconds(clock_str: str) -> int:
 # ---------------------------------------------------------------------------
 class NBAPlayByPlayScraper:
     """
-    Fetches play-by-play data from the NBA Stats API for a range of seasons.
+    Loads NBA play-by-play data from the Kaggle basketball dataset
+    (wyattowalsh/basketball).
+
+    The dataset must be available as ``basketball.sqlite`` in *raw_dir*.
+    If the file is absent it is downloaded automatically via the Kaggle API
+    (requires ``KAGGLE_USERNAME`` and ``KAGGLE_KEY`` environment variables or
+    a ``~/.kaggle/kaggle.json`` credentials file).
 
     Parameters
     ----------
     seasons : list of str
-        Season strings understood by nba_api, e.g. ``["2022-23", "2023-24"]``.
+        Season strings, e.g. ``["2022-23", "2023-24"]``.
     raw_dir : Path
-        Directory where raw Parquet files are cached.
+        Directory where ``basketball.sqlite`` is cached.
     """
+
+    KAGGLE_DATASET = "wyattowalsh/basketball"
+    DB_FILENAME = "basketball.sqlite"
+
+    # Map season string → 5-char regular-season game_id prefix
+    _SEASON_PREFIXES: Dict[str, str] = {
+        "2019-20": "00219",
+        "2020-21": "00220",
+        "2021-22": "00221",
+        "2022-23": "00222",
+        "2023-24": "00223",
+    }
+
+    # Column mapping from SQLite names to the uppercase names expected by
+    # PlayByPlayParser
+    _COLUMN_MAP: Dict[str, str] = {
+        "game_id":           "GAME_ID",
+        "period":            "PERIOD",
+        "pctimestring":      "PCTIMESTRING",
+        "eventMsgType":      "EVENTMSGTYPE",
+        "score":             "SCORE",
+        "homedescription":   "HOMEDESCRIPTION",
+        "visitordescription": "VISITORDESCRIPTION",
+    }
 
     def __init__(
         self,
@@ -158,19 +188,27 @@ class NBAPlayByPlayScraper:
     # Public API
     # ------------------------------------------------------------------
     def fetch_season_game_ids(self, season: str) -> List[str]:
-        """Return all regular-season game IDs for *season*."""
-        from nba_api.stats.endpoints import leaguegamefinder
+        """Return all regular-season game IDs for *season* from the database."""
+        import sqlite3
 
-        logger.info("Fetching game IDs for season %s…", season)
-        finder = _retry_with_backoff(
-            leaguegamefinder.LeagueGameFinder,
-            season_nullable=season,
-            season_type_nullable="Regular Season",
-        )
-        time.sleep(RATE_LIMIT_SLEEP)
-        df = finder.get_data_frames()[0]
-        ids: List[str] = df["GAME_ID"].unique().tolist()
-        logger.info("  → %d games found.", len(ids))
+        prefix = self._SEASON_PREFIXES.get(season, "")
+        if not prefix:
+            logger.warning("Unknown season '%s'; returning empty list.", season)
+            return []
+
+        db_path = self._get_db_path()
+        conn = sqlite3.connect(str(db_path))
+        try:
+            df = pd.read_sql_query(
+                "SELECT DISTINCT game_id FROM play_by_play WHERE game_id LIKE ?",
+                conn,
+                params=(f"{prefix}%",),
+            )
+        finally:
+            conn.close()
+
+        ids: List[str] = df["game_id"].tolist()
+        logger.info("Season %s: %d games found.", season, len(ids))
         return ids
 
     def fetch_play_by_play(self, game_id: str) -> pd.DataFrame:
@@ -179,14 +217,22 @@ class NBAPlayByPlayScraper:
         if cache_path.exists():
             return pd.read_parquet(cache_path)
 
-        from nba_api.stats.endpoints import playbyplayv2
+        import sqlite3
 
-        pbp = _retry_with_backoff(
-            playbyplayv2.PlayByPlayV2,
-            game_id=game_id,
-        )
-        time.sleep(RATE_LIMIT_SLEEP)
-        df = pbp.get_data_frames()[0]
+        db_path = self._get_db_path()
+        conn = sqlite3.connect(str(db_path))
+        try:
+            df = pd.read_sql_query(
+                "SELECT game_id, period, pctimestring, eventMsgType, score, "
+                "homedescription, visitordescription "
+                "FROM play_by_play WHERE game_id = ?",
+                conn,
+                params=(game_id,),
+            )
+        finally:
+            conn.close()
+
+        df = df.rename(columns=self._COLUMN_MAP)
         df.to_parquet(cache_path, index=False)
         return df
 
@@ -197,24 +243,77 @@ class NBAPlayByPlayScraper:
             logger.info("Loading cached combined PBP from %s", combined_path)
             return pd.read_parquet(combined_path)
 
-        frames: List[pd.DataFrame] = []
-        for season in self.seasons:
-            game_ids = self.fetch_season_game_ids(season)
-            for gid in game_ids:
-                try:
-                    df = self.fetch_play_by_play(gid)
-                    df["SEASON"] = season
-                    frames.append(df)
-                except Exception as exc:
-                    logger.error("Failed to fetch game %s: %s", gid, exc)
+        import sqlite3
 
-        if not frames:
-            logger.warning("No frames fetched; returning empty DataFrame.")
+        db_path = self._get_db_path()
+
+        prefixes = [
+            self._SEASON_PREFIXES[s]
+            for s in self.seasons
+            if s in self._SEASON_PREFIXES
+        ]
+        if not prefixes:
+            logger.warning("No valid season prefixes found; returning empty DataFrame.")
             return pd.DataFrame()
 
-        combined = pd.concat(frames, ignore_index=True)
-        combined.to_parquet(combined_path, index=False)
-        return combined
+        where_clause = " OR ".join(["game_id LIKE ?" for _ in prefixes])
+        params = [f"{p}%" for p in prefixes]
+
+        query = (
+            "SELECT game_id, period, pctimestring, eventMsgType, score, "
+            "homedescription, visitordescription "
+            f"FROM play_by_play WHERE ({where_clause})"
+        )
+
+        conn = sqlite3.connect(str(db_path))
+        try:
+            df = pd.read_sql_query(query, conn, params=params)
+        finally:
+            conn.close()
+
+        if df.empty:
+            logger.warning("No play-by-play data found for the specified seasons.")
+            return pd.DataFrame()
+
+        df = df.rename(columns=self._COLUMN_MAP)
+
+        prefix_to_season = {v: k for k, v in self._SEASON_PREFIXES.items()}
+        df["SEASON"] = df["GAME_ID"].str[:5].map(prefix_to_season).fillna("")
+
+        df.to_parquet(combined_path, index=False)
+        logger.info("Saved %d events to %s", len(df), combined_path)
+        return df
+
+    # ------------------------------------------------------------------
+    # Private helpers
+    # ------------------------------------------------------------------
+    def _get_db_path(self) -> Path:
+        """Return the path to ``basketball.sqlite``, downloading if absent."""
+        db_path = self.raw_dir / self.DB_FILENAME
+        if not db_path.exists():
+            self._download_dataset(db_path)
+        return db_path
+
+    def _download_dataset(self, db_path: Path) -> None:
+        """Download the Kaggle dataset to *raw_dir*."""
+        try:
+            import kaggle  # type: ignore[import-untyped]
+
+            kaggle.api.authenticate()
+            logger.info("Downloading Kaggle dataset '%s'…", self.KAGGLE_DATASET)
+            kaggle.api.dataset_download_files(
+                self.KAGGLE_DATASET,
+                path=str(self.raw_dir),
+                unzip=True,
+            )
+        except Exception as exc:
+            raise RuntimeError(
+                f"Failed to download Kaggle dataset '{self.KAGGLE_DATASET}'. "
+                f"Set KAGGLE_USERNAME and KAGGLE_KEY environment variables (or "
+                f"place a kaggle.json credentials file in ~/.kaggle/), or "
+                f"manually copy '{self.DB_FILENAME}' into '{self.raw_dir}'. "
+                f"Error: {exc}"
+            ) from exc
 
 
 # ---------------------------------------------------------------------------

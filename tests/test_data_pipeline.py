@@ -72,21 +72,34 @@ class TestNBAPlayByPlayScraper:
         assert len(scraper.seasons) == 5
         assert "2023-24" in scraper.seasons
 
-    @patch("src.data_pipeline.leaguegamefinder", create=True)
-    def test_fetch_season_game_ids_mocked(self, mock_lgf_module, tmp_path):
-        """fetch_season_game_ids should parse GAME_ID from the API response."""
-        mock_df = pd.DataFrame({"GAME_ID": ["0022300001", "0022300002", "0022300003"]})
-        mock_endpoint = MagicMock()
-        mock_endpoint.get_data_frames.return_value = [mock_df]
+    def test_fetch_season_game_ids_uses_db(self, tmp_path):
+        """fetch_season_game_ids should parse GAME_ID from the SQLite database."""
+        import sqlite3
 
-        with patch(
-            "src.data_pipeline._retry_with_backoff",
-            return_value=mock_endpoint,
-        ), patch("src.data_pipeline.time.sleep"):
-            scraper = NBAPlayByPlayScraper(seasons=["2023-24"], raw_dir=tmp_path)
-            ids = scraper.fetch_season_game_ids("2023-24")
+        db_path = tmp_path / "basketball.sqlite"
+        conn = sqlite3.connect(str(db_path))
+        conn.execute(
+            "CREATE TABLE play_by_play ("
+            "game_id TEXT, period INTEGER, pctimestring TEXT, "
+            "eventMsgType INTEGER, score TEXT, "
+            "homedescription TEXT, visitordescription TEXT)"
+        )
+        conn.execute(
+            "INSERT INTO play_by_play VALUES "
+            "('0022300001', 4, 'PT00M30.00S', 1, '95 - 92', '', '')"
+        )
+        conn.execute(
+            "INSERT INTO play_by_play VALUES "
+            "('0022300002', 4, 'PT00M20.00S', 2, '95 - 92', '', '')"
+        )
+        conn.commit()
+        conn.close()
 
-        assert ids == ["0022300001", "0022300002", "0022300003"]
+        scraper = NBAPlayByPlayScraper(seasons=["2023-24"], raw_dir=tmp_path)
+        ids = scraper.fetch_season_game_ids("2023-24")
+
+        assert "0022300001" in ids
+        assert "0022300002" in ids
 
     def test_fetch_play_by_play_uses_cache(self, tmp_path):
         """fetch_play_by_play should return cached file if it exists."""
