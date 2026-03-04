@@ -23,7 +23,7 @@ dependencies = [
     "numpy>=1.26",
     "scipy>=1.11",
     "pyarrow>=14.0",
-    "pymdptoolbox>=4.0",
+    "pymdptoolbox==4.0b3",
     "matplotlib>=3.8",
     "seaborn>=0.13",
     "mkdocs-material>=9.5",
