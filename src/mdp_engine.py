@@ -319,6 +319,17 @@ def _get_model_transitions(
     if action == "shoot":
         return model.shoot_transitions(state)
     if action == "foul":
+        _, _, pos, _ = state
+        # "foul" is a strategic defensive action: the home team intentionally
+        # fouls the away ball-handler (pos == 0).  When home has possession
+        # (pos == 1) there is no meaningful guaranteed-foul-draw option; the
+        # small probability of drawing a foul is already embedded inside
+        # shoot_transitions via foul_drawn_prob.  Mapping "foul" to "shoot"
+        # for pos == 1 prevents value-iteration from exploiting an unrealistic
+        # free-throw shortcut and keeps V*(home_ball) grounded in actual
+        # shooting outcomes.
+        if pos == 1:
+            return model.shoot_transitions(state)
         return model.foul_transitions(state)
     if action == "hold":
         return model.hold_transitions(state)
@@ -532,8 +543,13 @@ class Theorem1TwoForOne:
                 p * values.get(MDPSolver._snap_state(sp), terminal_reward(sp[0]))
                 for sp, p, _ in rush_trans
             )
+            # Normal possession: model a typical ~20–25 s possession.
+            # For very short time values we clip to the available seconds so
+            # that the hold doesn't push the clock past zero.
+            normal_min = min(20, max(5, sec - 5))
+            normal_max = min(25, sec)
             hold_trans = self.model.hold_transitions(
-                rush_state, time_cost_min=max(5, sec - 10), time_cost_max=sec
+                rush_state, time_cost_min=normal_min, time_cost_max=normal_max
             )
             ev_normal = sum(
                 p * values.get(MDPSolver._snap_state(sp), terminal_reward(sp[0]))

@@ -71,9 +71,9 @@ combinations of seconds remaining (rows) and opponent 3PT% (columns).
 
 2. **The advantage of fouling grows with the opponent's 3PT%.** Against a 28% shooter the gain is smallest (+7.4 pp on average), while against a 44% shooter it is largest (+11.6 pp on average).
 
-3. **With only 2 seconds left, the strategy matters less** — there is barely
-   enough time for either a clean 3PT attempt or a fast-foul scenario. Both
-   strategies converge to similar win probabilities.
+3. **The benefit is remarkably stable across all time values** (2–10 s):
+   average WP gain at 2 s is +9.4 pp vs. +9.5 pp at 10 s —
+   fouling is advisable regardless of exactly how many seconds remain.
 
 ### Numerical Summary
 
@@ -90,16 +90,19 @@ combinations of seconds remaining (rows) and opponent 3PT% (columns).
 
 ## Sensitivity Analysis
 
-The decision boundary is sensitive to the **opponent's 3PT%**:
+The key driver of the decision is the **opponent's 3PT%**. As the opponent's
+three-point shooting ability increases, the expected cost of allowing a 3PT attempt
+grows, making the foul decision more valuable.
 
-$$\text{Foul threshold} \approx \text{FT\%}^2 \cdot (-2) + (1 - \text{FT\%}^2) \cdot 0 \geq -\text{3PT\%} \cdot 0$$
-
-Simplifying with league-average FT% = 77%:
+With league-average FT% = 77%, the free-throw outcomes impose an expected
+win-probability cost of roughly:
 
 $$\text{Expected cost of foul} = 0.59 \times (-2\text{ pp}) \approx -1.2\text{ pp}$$
 
-This cost is outweighed when the 3PT% exceeds roughly **39%–41%** — very close to
-the league average.
+In practice the MDP results show that fouling is beneficial across the **full
+range** of analyzed 3PT percentages (28%–44%): even against
+a relatively poor 3PT team the WP gain is materially positive (+7.3 pp),
+and it grows to +11.6 pp against elite 3PT shooters.
 
 ---
 
@@ -108,8 +111,9 @@ the league average.
 * Free-throw model: independent Bernoulli trials with league-average FT% = 77%.
 * A **missed second free throw** is modelled as the fouled team retaining
   possession (rebounds to the offense at a 70 % rate in late-game situations).
-* The MDP solver uses a discount factor $\gamma = 1.0$ (undiscounted) since we
-  care about win/loss outcomes, not time-weighted rewards.
+* The MDP solver uses a near-undiscounted discount factor ($\gamma = 0.99$)
+  so that the value function approximates true win probabilities while keeping
+  value iteration well-conditioned.
 
 ---
 
