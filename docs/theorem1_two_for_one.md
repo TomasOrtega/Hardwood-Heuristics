@@ -30,15 +30,15 @@ fraction of games where the home team went on to win given that choice.
 
 The historical data reveals several patterns:
 
-1. **Critical window: ~16–18 seconds remaining.** This is where the historical
+1. **Critical window: ~18–22 seconds remaining.** This is where the historical
    win gain from rushing is largest. A team with possession in this window
    should consider pushing the pace to ensure two possessions.
 
-2. **Below ~14 seconds: normal possession is preferred** — insufficient time
+2. **Below ~16 seconds: normal possession is preferred** — insufficient time
    for the opponent to mount a meaningful second possession, so the
    risk-return of rushing does not pay off historically.
 
-3. **Above ~20 seconds: normal possession is preferable.** Rushing at 20+ seconds
+3. **Above ~24 seconds: normal possession is preferable.** Rushing at 24+ seconds
    gives the opponent two possessions, negating the advantage.
 
 ### Historical Data Summary
@@ -47,9 +47,9 @@ Data from 5 NBA seasons (2019–2024):
 
 | Scenario | Rush Win % | Hold Win % | Win % Gain | Better Strategy |
 |----------|-----------|-----------|------------|----------------|
-| 32 s, tied | 0.50 | 0.00 | **+0.50** | Rush ✓ |
-| 40 s, tied | 0.00 | 0.00 | 0.00 | Normal ✓ |
-| 20 s, tied | 0.00 | 0.00 | 0.00 | Normal ✓ |
+| 32 s, tied | 0.20 | 0.25 | -0.05 | Normal ✓ |
+| 40 s, tied | 0.13 | 0.29 | -0.16 | Normal ✓ |
+| 20 s, tied | 0.30 | 0.18 | **+0.12** | Rush ✓ |
 
 > *Values are historical win percentages from NBA play-by-play data, 2019–2024.*
 
@@ -57,8 +57,8 @@ Data from 5 NBA seasons (2019–2024):
 
 ## Conclusion
 
-**The 2-for-1 is historically justified in the window ~16–18 s.**
+**The 2-for-1 is historically justified in the window ~18–22 s.**
 Outside this window, the historical data suggests normal possession
 is better. Coaches should be aware of the exact clock time — taking
-a shot at 20+ seconds can actually reduce win
+a shot at 24+ seconds can actually reduce win
 probability relative to playing for a clean look.
