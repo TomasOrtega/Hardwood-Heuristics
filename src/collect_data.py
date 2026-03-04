@@ -75,11 +75,29 @@ def _collect_theorem2(
         ft_pct_kwarg = {"opp_ft_pct": model.ft_pct}
 
     t2 = Theorem2FoulUp3(**ft_pct_kwarg)
-    grid = t2.sweep(time_values=time_values, fg3_pct_values=fg3_values)
+
+    # Build individual wp_foul / wp_no_foul grids as well as the gain grid so
+    # that the doc-generator can produce accurate per-cell table values.
+    n_time = len(time_values)
+    n_fg3  = len(fg3_values)
+    grid          = np.zeros((n_time, n_fg3))
+    wp_foul_grid  = np.zeros((n_time, n_fg3))
+    wp_no_foul_grid = np.zeros((n_time, n_fg3))
+    for i, sec in enumerate(time_values):
+        for j, fg3 in enumerate(fg3_values):
+            t2_cell = Theorem2FoulUp3(opp_ft_pct=t2.opp_ft_pct, opp_fg3_pct=fg3)
+            result = t2_cell.compute(seconds_remaining=sec)
+            grid[i, j]            = result["wp_gain"]
+            wp_foul_grid[i, j]    = result["wp_foul"]
+            wp_no_foul_grid[i, j] = result["wp_no_foul"]
 
     grid_path = out_dir / "theorem2_grid.npy"
     np.save(grid_path, grid)
     logger.info("Saved Theorem 2 grid to %s", grid_path)
+
+    np.save(out_dir / "theorem2_wp_foul_grid.npy", wp_foul_grid)
+    np.save(out_dir / "theorem2_wp_no_foul_grid.npy", wp_no_foul_grid)
+    logger.info("Saved Theorem 2 individual WP grids to %s", out_dir)
 
     meta_path = out_dir / "theorem2_metadata.json"
     with open(meta_path, "w") as f:
@@ -140,6 +158,10 @@ def collect_all(out_dir: Path = PROCESSED_DIR) -> None:
         collector(out_dir, model=model)
 
     logger.info("All data collected and saved to %s", out_dir)
+
+    from src.generate_docs import generate_all_docs
+    generate_all_docs(processed_dir=out_dir)
+    logger.info("Theorem documentation regenerated from analysis results.")
 
 
 if __name__ == "__main__":

@@ -54,15 +54,16 @@ normal possession is preferred.
 
 The MDP analysis reveals several important thresholds:
 
-1. **Critical window: ~28–35 seconds remaining.** This is where the EV gain from
+1. **Critical window: ~28–64 seconds remaining.** This is where the EV gain from
    rushing is maximised. A team with possession in this window should consider
    pushing the pace to ensure two possessions.
 
-2. **Below ~18 seconds: rushing is always better** because there is insufficient
-   time for a normal possession *plus* a second shot.
+2. **Below ~26 seconds: normal possession is preferred** — insufficient time
+   for the opponent to mount a meaningful second possession, so the
+   risk-return of rushing does not pay off.
 
-3. **Above ~40 seconds: normal possession is preferable.** Rushing at 45+ seconds
-   gives the opponent two possessions, negating the advantage.
+3. **Within the analyzed range the rush advantage holds** across most clock values in
+   the main window — but the margin narrows significantly outside of it.
 
 ### Numerical Summary
 
@@ -70,9 +71,9 @@ Using league-average parameters:
 
 | Scenario | $\text{EV}_{\text{rush}}$ | $\text{EV}_{\text{normal}}$ | $\Delta\text{EV}$ | Optimal |
 |----------|------|--------|------|---------|
-| 32 s, tied | ~0.53 | ~0.50 | **+0.03** | Rush ✓ |
-| 40 s, tied | ~0.51 | ~0.53 | −0.02 | Normal ✓ |
-| 20 s, tied | ~0.54 | ~0.50 | **+0.04** | Rush ✓ |
+| 32 s, tied | 0.62 | 0.59 | **+0.03** | Rush ✓ |
+| 40 s, tied | 0.75 | 0.59 | **+0.15** | Rush ✓ |
+| 20 s, tied | 0.49 | 0.59 | -0.10 | Normal ✓ |
 
 > *Values are home win-probability estimates from backward-induction solver.*
 
@@ -82,8 +83,8 @@ Using league-average parameters:
 
 * The analytic transition model uses the following league-average statistics
   (2019–24 regular season):
-  - 2PT FG%: **52 %**   |   3PT FG%: **36 %**   |   FT%: **77 %**
-  - Turnover rate: **12 %**   |   Foul-drawn rate: **15 %**
+  - 2PT FG%: **52%**   |   3PT FG%: **36%**   |   FT%: **77%**
+  - Turnover rate: **12%**   |   Foul-drawn rate: **15%**
 * "Hold" action distributes time costs uniformly over 20–25 seconds to reflect
   real possession variability.
 * The model treats rebounds probabilistically rather than tracking individual
@@ -93,7 +94,7 @@ Using league-average parameters:
 
 ## Conclusion
 
-**The 2-for-1 is mathematically justified in a narrow time window (~18–35 s).**
+**The 2-for-1 is mathematically justified in a narrow time window (~28–64 s).**
 Outside this window, the conventional wisdom breaks down. Coaches should be aware
-of the exact clock time before committing to a rush — taking a shot at 42 seconds
+of the exact clock time before committing to a rush — taking a shot at 66 seconds
 can actually *reduce* win probability relative to playing for a clean look.
