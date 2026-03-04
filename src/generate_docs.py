@@ -501,8 +501,8 @@ and it grows to +{max_gain_pp:.1f} pp against elite 3PT shooters.
 ## Methodology Notes
 
 * Free-throw model: independent Bernoulli trials with league-average FT% = {ft_pct:.0%}.
-* A **missed second free throw** is modelled as the fouled team retaining
-  possession (rebounds to the offense at a 70 % rate in late-game situations).
+* A **missed second free throw** is modelled as turning over to the defense,
+  aligning with the ~85% defensive rebounding rate on free throws.
 * The MDP solver uses a near-undiscounted discount factor ($\\gamma = 0.99$)
   so that the value function approximates true win probabilities while keeping
   value iteration well-conditioned.
