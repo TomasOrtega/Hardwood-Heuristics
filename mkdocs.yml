@@ -51,3 +51,4 @@ nav:
   - Home: index.md
   - "Theorem 1: The 2-for-1": theorem1_two_for_one.md
   - "Theorem 2: Foul Up 3": theorem2_foul_up_3.md
+  - "Theorem 3: The Late-Game Timeout": theorem3_timeout.md

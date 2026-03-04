@@ -47,6 +47,13 @@ def _fmt_gain(value: float, pp: bool = False) -> str:
     return f"{value * 100:.1f}{suffix}"
 
 
+def _gain_label(value: float) -> str:
+    """Format a raw win-probability gain (0–1 scale) with bold for positive values."""
+    if value > 0:
+        return f"**+{value:.2f}**"
+    return f"{value:.2f}"
+
+
 def _find_sweep_entry(sweep: List[Dict], seconds: int) -> Dict:
     """Return the sweep dict entry for the given seconds value."""
     for entry in sweep:
@@ -97,10 +104,10 @@ _THEOREM1_TEMPLATE = """\
 
 ## Claim
 
-> **Based on NBA play-by-play data from 2019–2024, teams that rush a shot with
-> approximately 32 seconds remaining — gaining a second possession before time
-> expires — win at a higher historical rate than teams that hold for a full
-> possession.**
+> **Based on NBA play-by-play data from 2019–2024, teams that rush a shot
+> to secure two possessions before time expires sometimes win at a higher
+> historical rate — but there is no sharp, reliable clock threshold where
+> this advantage switches on.**
 
 ---
 
@@ -112,8 +119,8 @@ possession by strategy:
 - **Rush (shoot):** The possessing team takes a shot attempt.
 - **Normal (hold):** The possessing team holds the ball (any non-shooting action).
 
-We then calculate the **historical win percentage** for each group — the
-fraction of games where the home team went on to win given that choice.
+We calculate the **historical win percentage** for each group — the fraction
+of games where the home team went on to win given that choice.
 
 ---
 
@@ -122,8 +129,6 @@ fraction of games where the home team went on to win given that choice.
 ![2-for-1 Win Percentage Curve](assets/images/two_for_one_ev_curve.png)
 
 ### Key Findings
-
-The historical data reveals several patterns:
 
 {key_findings}
 
@@ -158,8 +163,9 @@ def _build_theorem1_key_findings(sweep: List[Dict]) -> str:
 
     if not windows:
         return (
-            "1. **No time window found where rushing is strictly better** "
-            "in the current data. Normal possession is preferred throughout."
+            "1. **No consistent rushing advantage found** in the current data — "
+            "normal possession is at least as good across all analyzed time buckets. "
+            "The 2-for-1 effect is not apparent in this sample."
         )
 
     main_window = max(windows, key=lambda w: w[1] - w[0])
@@ -173,68 +179,57 @@ def _build_theorem1_key_findings(sweep: List[Dict]) -> str:
 
     if window_covers_full_range:
         max_gain_entry = max(sorted_sweep, key=lambda e: e["ev_gain"])
-        min_gain_entry = min(sorted_sweep, key=lambda e: e["ev_gain"])
-        lines.append(
-            f"1. **Rush advantage holds across the full analyzed window "
-            f"({sweep_min}–{sweep_max} s).**"
-            " The historical win gain from rushing is positive throughout.\n"
-            f"   The advantage is largest around ~{max_gain_entry['seconds_remaining']} s "
-            f"and smallest near ~{min_gain_entry['seconds_remaining']} s."
-        )
         classic_entries = [e for e in sorted_sweep if 28 <= e["seconds_remaining"] <= 34]
         if classic_entries:
             avg_gain_classic = sum(e["ev_gain"] for e in classic_entries) / len(classic_entries)
             lines.append(
-                f"2. **Classic 2-for-1 window (~28–34 s): modest but consistent advantage.**"
-                f" Average win % gain ≈ +{avg_gain_classic:.2f} in this range — "
-                "rushing ensures two possessions vs. the opponent's one."
+                f"1. **Classic 2-for-1 window (~28–34 s): modest positive signal.**"
+                f" Average win % gain ≈ +{avg_gain_classic:.2f} — rushing secures "
+                "two possessions against the opponent's one, but the margin is small."
             )
         lines.append(
-            "3. **The gain is larger at shorter time values** because holding for a full\n"
-            "   possession at < 25 s consumes most of the remaining clock, while rushing\n"
-            "   still gives the team a realistic scoring opportunity before time expires."
+            f"2. **The advantage is largest around ~{max_gain_entry['seconds_remaining']} s**, "
+            "where rushing leaves enough time for a second possession while the opponent "
+            "can only respond once."
+        )
+        lines.append(
+            "3. **No sharp threshold**: the signal is noisy across individual time buckets. "
+            "Treat any specific second value as a rough guide, not a precise trigger."
         )
     else:
         lines.append(
-            f"1. **Critical window: ~{main_window[0]}–{main_window[1]} seconds remaining.**"
-            " This is where the historical\n"
-            "   win gain from rushing is largest. A team with possession in this window\n"
-            "   should consider pushing the pace to ensure two possessions."
+            f"1. **Rushing appears beneficial roughly in the ~{main_window[0]}–{main_window[1]} s window** "
+            "based on historical data, but the boundary is not sharp — adjacent time "
+            "buckets often flip sign due to sample noise."
         )
 
         below_negs = [s for s in negative_secs if s < main_window[0]]
         if below_negs:
             boundary = max(below_negs)
             lines.append(
-                f"2. **Below ~{boundary} seconds: normal possession is preferred** — "
-                "insufficient time\n"
-                "   for the opponent to mount a meaningful second possession, so the\n"
-                "   risk-return of rushing does not pay off historically."
+                f"2. **Below ~{boundary} s normal possession is preferred** — too little "
+                "time remains for the opponent to mount a meaningful second possession, "
+                "so the risk-return of rushing does not pay off historically."
             )
-        else:
-            secondary_windows = [w for w in windows if w != main_window]
-            if secondary_windows:
-                sw = secondary_windows[0]
-                lines.append(
-                    f"2. **Below ~{sw[1]} seconds: rushing is also better** because "
-                    "there is insufficient\n"
-                    "   time for a normal possession *plus* a second shot."
-                )
 
         above_negs = [s for s in negative_secs if s > main_window[1]]
         if above_negs:
             boundary = min(above_negs)
             lines.append(
-                f"3. **Above ~{boundary} seconds: normal possession is preferable.** "
-                f"Rushing at {boundary}+ seconds\n"
-                "   gives the opponent two possessions, negating the advantage."
+                f"3. **Above ~{boundary} s normal possession is preferable** — rushing "
+                "this early hands the opponent two possessions, negating the advantage."
             )
         else:
             lines.append(
-                "3. **Within the analyzed range the rush advantage holds** across most"
-                " clock values in\n"
-                "   the main window — but the margin narrows significantly outside of it."
+                "3. **No clean upper threshold**: the rush advantage appears to extend "
+                "across most of the analyzed range, though the margin narrows at longer "
+                "clock values."
             )
+
+    lines.append(
+        f"4. **Sample sizes are small per bucket** — conclusions should be treated as "
+        "directional signals rather than precise thresholds."
+    )
 
     return "\n\n".join(lines)
 
@@ -268,48 +263,45 @@ def _generate_theorem1_doc(
         main_window[0] == sweep_min and main_window[1] == sweep_max
     )
 
-    above_window_neg = [
-        e["seconds_remaining"]
-        for e in sorted_sweep
-        if e["seconds_remaining"] > window_high and e["ev_gain"] <= 0
-    ]
-    if above_window_neg:
-        conclusion_caution_sec = above_window_neg[0]
+    # Build conclusion — always acknowledge the lack of a clean threshold
+    if window_low == 0 and window_high == 0:
         conclusion = (
-            f"**The 2-for-1 is historically justified in the window "
-            f"~{window_low}–{window_high} s.**\n"
-            "Outside this window, the historical data suggests normal possession\n"
-            f"is better. Coaches should be aware of the exact clock time — taking\n"
-            f"a shot at {conclusion_caution_sec}+ seconds can actually reduce win\n"
-            "probability relative to playing for a clean look."
+            "**The historical data does not show a consistent rushing advantage** "
+            "across the analyzed range. Normal possession is at least as good in all "
+            "studied time buckets. The conventional 2-for-1 wisdom is not confirmed by "
+            "this sample — coaches should not sacrifice shot quality on clock alone."
         )
     elif window_covers_full_range:
         conclusion = (
-            f"**The rush advantage holds across the full analyzed range "
-            f"({sweep_min}–{sweep_max} s).**\n"
-            "Shooting immediately is historically at least as good as holding for a full\n"
-            "possession within the analyzed window. The gain is most modest in the classic\n"
-            "2-for-1 zone (~28–34 s), where the difference between rush and normal is small\n"
-            "but consistently positive — coaches should push the pace when the clock is in\n"
-            "this range to ensure two possessions."
+            f"**The historical data shows a modest rush advantage across the full analyzed range "
+            f"({sweep_min}–{sweep_max} s)**, but the gain is small and the threshold is not sharp. "
+            "Shooting immediately is historically at least as good as holding, but "
+            "the margin is narrow enough that shot quality matters more than the exact clock value. "
+            "Coaches should push the pace when a good shot is available, not sacrifice "
+            "shot quality chasing a specific second count."
         )
     else:
+        above_neg = [
+            e["seconds_remaining"]
+            for e in sorted_sweep
+            if e["seconds_remaining"] > window_high and e["ev_gain"] <= 0
+        ]
+        caution = (
+            f" Rushing at {above_neg[0]}+ seconds can reduce win probability."
+            if above_neg else ""
+        )
         conclusion = (
-            f"**The 2-for-1 is historically justified in the time window "
-            f"~{window_low}–{window_high} s.**\n"
-            "Outside this window the historical data shows normal possession is better.\n"
-            "Coaches should be aware of the exact clock time before committing to a rush."
+            f"**The 2-for-1 shows a positive signal in roughly the {window_low}–{window_high} s range**, "
+            "but there is no sharp, reliable threshold — individual second-by-second results "
+            f"are noisy.{caution} "
+            "Use this as a directional guide: favour rushing when a good shot is available "
+            "in this window, but do not sacrifice shot quality for a specific clock value."
         )
 
     key_findings = _build_theorem1_key_findings(sweep)
 
     def _optimal_label(gain: float) -> str:
         return "Rush ✓" if gain > 0 else "Normal ✓"
-
-    def _gain_label(gain: float) -> str:
-        if gain > 0:
-            return f"**+{gain:.2f}**"
-        return f"{gain:.2f}"
 
     content = _THEOREM1_TEMPLATE.format(
         key_findings=key_findings,
@@ -344,26 +336,21 @@ _THEOREM2_TEMPLATE = """\
 ## Claim
 
 > **Based on NBA play-by-play data from 2019–2024, teams leading by 3 points
-> with fewer than 12 seconds remaining win at a higher historical rate when
-> they intentionally foul the ball-handler.**
+> with fewer than 12 seconds remaining generally win more often when they
+> intentionally foul — especially against good three-point shooters.**
 
 ---
 
 ## How We Measure It
 
-We filter the historical play-by-play log for situations where:
+We filter the historical play-by-play log for:
 
-- The home team is defending (away team has the ball)
-- The home team leads by exactly 3 points
+- Home team defending (away team has the ball)
+- Home team leads by exactly 3 points
 - Fewer than 12 seconds remain
 
-We group possessions by:
-
-- **Foul:** The defending team commits an intentional foul.
-- **No Foul:** Normal defense is played.
-
-We then calculate the **historical win percentage** for the home team in
-each group — the fraction of games the home team won after each choice.
+We group possessions by **Foul** (intentional) vs. **No Foul** (normal defence),
+and compute the home-team historical win percentage for each.
 
 ---
 
@@ -371,12 +358,8 @@ each group — the fraction of games the home team won after each choice.
 
 ![Foul Up 3 Heatmap](assets/images/foul_up_3_heatmap.png)
 
-The heatmap displays the historical win % gain (in percentage points) from
-fouling vs. not fouling across combinations of seconds remaining (rows) and
-opponent 3PT% (columns).
-
-- **Green cells** — Fouling historically increases win percentage (positive gain)
-- **Red cells** — Normal defense historically performs better (negative gain)
+The heatmap shows the historical win % gain from fouling (green = fouling better,
+red = normal defence better) across time remaining and opponent 3PT%.
 
 ### Key Findings
 
@@ -399,13 +382,11 @@ Data from 5 NBA seasons (2019–2024):
 
 ## Sensitivity Analysis
 
-The key driver of the decision is the **opponent's 3PT%**. As the opponent's
-three-point shooting ability increases, the expected cost of allowing a 3PT
-attempt grows, making the foul decision more valuable.
+The key driver is the **opponent's 3PT%** — a higher shooting rate makes
+allowing a three-point attempt more costly.
 
-Historical data shows fouling is beneficial across the **full range** of
-analyzed 3PT percentages ({fg3_min:.0%}–{fg3_max:.0%}): the win % gain ranges from
-+{min_gain_pp:.1f} pp to +{max_gain_pp:.1f} pp.
+Analyzed range ({fg3_min:.0%}–{fg3_max:.0%} opponent 3PT%):
+win % gain from fouling ranges from {min_gain_pp:.1f} pp to +{max_gain_pp:.1f} pp.
 
 ---
 
@@ -619,12 +600,216 @@ def _generate_theorem2_doc(
 
 
 # ---------------------------------------------------------------------------
+# Theorem 3 doc generator
+# ---------------------------------------------------------------------------
+
+_THEOREM3_TEMPLATE = """\
+# Theorem 3: The Late-Game Timeout
+
+## Claim
+
+> **Based on NBA play-by-play data from 2019–2024, teams trailing by 1–3 points
+> (or tied) with possession and 20–50 seconds remaining do not consistently
+> gain a win-probability advantage by calling a timeout.**
+
+---
+
+## How We Measure It
+
+We filter the historical play-by-play log for situations where:
+
+- The home team has possession
+- The score differential is between −3 and 0 (trailing by up to 3, or tied)
+- Between 20 and 50 seconds remain
+
+We group possessions by:
+
+- **Timeout:** The team stops play with a timeout call.
+- **Play On:** The team continues without calling a timeout.
+
+We then calculate the **historical win percentage** for the home team in
+each group across a sweep of time-remaining values.
+
+---
+
+## Results
+
+![Late-Game Timeout Win Percentage Curve](assets/images/timeout_ev_curve.png)
+
+### Key Findings
+
+{key_findings}
+
+### Historical Data Summary
+
+Data from 5 NBA seasons (2019–2024):
+
+| Seconds | Timeout Win % | Play-On Win % | Win % Gain | Better Strategy |
+|---------|--------------|--------------|------------|----------------|
+| 40 s | {ev_timeout_40} | {ev_play_on_40} | {ev_gain_40} | {optimal_40} |
+| 30 s | {ev_timeout_30} | {ev_play_on_30} | {ev_gain_30} | {optimal_30} |
+| 20 s | {ev_timeout_20} | {ev_play_on_20} | {ev_gain_20} | {optimal_20} |
+
+> *Values are historical win percentages from NBA play-by-play data, 2019–2024.*
+
+---
+
+## Conclusion
+
+{conclusion}
+"""
+
+
+def _build_theorem3_key_findings(sweep: List[Dict]) -> str:
+    """
+    Construct the Key Findings bullet list for Theorem 3 from sweep data.
+    Returns a markdown-formatted string.
+    """
+    sorted_sweep = sorted(sweep, key=lambda e: e["seconds_remaining"])
+    gains = [e["ev_gain"] for e in sorted_sweep]
+    positive_count = sum(1 for g in gains if g > 0)
+    total = len(gains)
+
+    mean_gain = sum(gains) / total if total > 0 else 0.0
+    max_entry = max(sorted_sweep, key=lambda e: e["ev_gain"])
+    min_entry = min(sorted_sweep, key=lambda e: e["ev_gain"])
+
+    if positive_count == 0:
+        return (
+            "1. **Calling a timeout does not historically improve win rate** "
+            "across any of the analyzed time windows. Playing on is at least "
+            "as good as calling a timeout in all cases studied.\n\n"
+            "2. **The win-percentage gap is small**, suggesting the timeout "
+            "decision has limited measurable impact on historical outcomes "
+            "— other factors (player execution, matchups) likely dominate."
+        )
+
+    if positive_count == total:
+        return (
+            f"1. **Calling a timeout is historically beneficial across all analyzed "
+            f"windows** ({sorted_sweep[0]['seconds_remaining']}–"
+            f"{sorted_sweep[-1]['seconds_remaining']} s). "
+            f"The average win % gain is **+{mean_gain * 100:.1f} pp**.\n\n"
+            f"2. **The advantage peaks around {max_entry['seconds_remaining']} s** "
+            f"(gain ≈ +{max_entry['ev_gain'] * 100:.1f} pp) and is smallest near "
+            f"{min_entry['seconds_remaining']} s "
+            f"(gain ≈ +{min_entry['ev_gain'] * 100:.1f} pp).\n\n"
+            "3. **The result is consistent**: calling a timeout to set up the "
+            "final possession appears to help regardless of how many seconds remain "
+            "in the analyzed window."
+        )
+
+    positive_secs = [e["seconds_remaining"] for e in sorted_sweep if e["ev_gain"] > 0]
+    negative_secs = [e["seconds_remaining"] for e in sorted_sweep if e["ev_gain"] <= 0]
+
+    return (
+        f"1. **Results are mixed**: a timeout historically helps at "
+        f"{len(positive_secs)} of {total} time buckets "
+        f"({min(positive_secs)}–{max(positive_secs)} s) "
+        f"but hurts at {len(negative_secs)} others "
+        f"({min(negative_secs)}–{max(negative_secs)} s).\n\n"
+        f"2. **The largest timeout advantage** occurs around "
+        f"~{max_entry['seconds_remaining']} s "
+        f"(+{max_entry['ev_gain'] * 100:.1f} pp). "
+        f"The largest disadvantage is near ~{min_entry['seconds_remaining']} s "
+        f"({min_entry['ev_gain'] * 100:.1f} pp).\n\n"
+        "3. **Overall the data is inconclusive**: there is no clean time window "
+        "where timeouts are uniformly better or worse. The decision likely "
+        "depends more on matchup and opponent tendencies than on the clock."
+    )
+
+
+def _build_theorem3_conclusion(sweep: List[Dict]) -> str:
+    """Return the conclusion paragraph for Theorem 3."""
+    sorted_sweep = sorted(sweep, key=lambda e: e["seconds_remaining"])
+    gains = [e["ev_gain"] for e in sorted_sweep]
+    positive_count = sum(1 for g in gains if g > 0)
+    total = len(gains)
+    mean_gain_pp = (sum(gains) / total) * 100 if total > 0 else 0.0
+
+    if positive_count == 0:
+        return (
+            "**The historical data does not support a systematic timeout advantage** "
+            "when trailing in the final 20–50 seconds. Playing on is at least as good "
+            "as stopping the clock across all analyzed situations. Coaches should "
+            "prioritize player execution and matchup considerations over the timeout "
+            "decision itself."
+        )
+    if positive_count == total:
+        return (
+            f"**The historical data favours calling a timeout** when trailing with "
+            f"20–50 seconds remaining (average win % gain: +{mean_gain_pp:.1f} pp). "
+            "Setting up the final possession appears to be beneficial — coaches "
+            "should use available timeouts to organise their offence in this window."
+        )
+    return (
+        "**The historical data is inconclusive**: a timeout does not consistently "
+        "help or hurt across the analyzed 20–50 second window. "
+        f"On average the gain is {mean_gain_pp:+.1f} pp — essentially noise. "
+        "Coaches should base the timeout decision on matchup specifics and player "
+        "fatigue rather than treating it as a universal rule."
+    )
+
+
+def _generate_theorem3_doc(
+    processed_dir: Path = PROCESSED_DIR,
+    docs_dir: Path = DOCS_DIR,
+) -> Path:
+    """Load Theorem 3 sweep data and write the theorem3 Markdown file."""
+    sweep_path = processed_dir / "theorem3_sweep.json"
+    if not sweep_path.exists():
+        raise FileNotFoundError(
+            f"Theorem 3 sweep data not found at {sweep_path}. "
+            "Run `python -m src.collect_data` first."
+        )
+
+    with open(sweep_path) as f:
+        sweep: List[Dict] = json.load(f)
+
+    def _find(sec: int) -> Dict:
+        return _find_sweep_entry(sweep, sec)
+
+    e40 = _find(40)
+    e30 = _find(30)
+    e20 = _find(20)
+
+    def _optimal_label(gain: float) -> str:
+        return "Timeout ✓" if gain > 0 else "Play On ✓"
+
+    key_findings = _build_theorem3_key_findings(sweep)
+    conclusion = _build_theorem3_conclusion(sweep)
+
+    content = _THEOREM3_TEMPLATE.format(
+        key_findings=key_findings,
+        conclusion=conclusion,
+        ev_timeout_40=_fmt_ev(e40["ev_timeout"]),
+        ev_play_on_40=_fmt_ev(e40["ev_play_on"]),
+        ev_gain_40=_gain_label(e40["ev_gain"]),
+        optimal_40=_optimal_label(e40["ev_gain"]),
+        ev_timeout_30=_fmt_ev(e30["ev_timeout"]),
+        ev_play_on_30=_fmt_ev(e30["ev_play_on"]),
+        ev_gain_30=_gain_label(e30["ev_gain"]),
+        optimal_30=_optimal_label(e30["ev_gain"]),
+        ev_timeout_20=_fmt_ev(e20["ev_timeout"]),
+        ev_play_on_20=_fmt_ev(e20["ev_play_on"]),
+        ev_gain_20=_gain_label(e20["ev_gain"]),
+        optimal_20=_optimal_label(e20["ev_gain"]),
+    )
+
+    out_path = docs_dir / "theorem3_timeout.md"
+    out_path.write_text(content, encoding="utf-8")
+    logger.info("Written Theorem 3 doc to %s", out_path)
+    return out_path
+
+
+# ---------------------------------------------------------------------------
 # Registry
 # ---------------------------------------------------------------------------
 
 _DOC_GENERATORS: Dict = {
     "theorem1": _generate_theorem1_doc,
     "theorem2": _generate_theorem2_doc,
+    "theorem3": _generate_theorem3_doc,
 }
 
 

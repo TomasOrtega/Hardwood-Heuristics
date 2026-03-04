@@ -1,0 +1,114 @@
+[
+  {
+    "seconds_remaining": 20,
+    "ev_timeout": 0.087,
+    "ev_play_on": 0.1111,
+    "ev_gain": -0.0242,
+    "timeout_is_optimal": false
+  },
+  {
+    "seconds_remaining": 22,
+    "ev_timeout": 0.0357,
+    "ev_play_on": 0.0614,
+    "ev_gain": -0.0257,
+    "timeout_is_optimal": false
+  },
+  {
+    "seconds_remaining": 24,
+    "ev_timeout": 0.0968,
+    "ev_play_on": 0.0519,
+    "ev_gain": 0.0448,
+    "timeout_is_optimal": true
+  },
+  {
+    "seconds_remaining": 26,
+    "ev_timeout": 0.1613,
+    "ev_play_on": 0.1179,
+    "ev_gain": 0.0434,
+    "timeout_is_optimal": true
+  },
+  {
+    "seconds_remaining": 28,
+    "ev_timeout": 0.08,
+    "ev_play_on": 0.1032,
+    "ev_gain": -0.0232,
+    "timeout_is_optimal": false
+  },
+  {
+    "seconds_remaining": 30,
+    "ev_timeout": 0.1429,
+    "ev_play_on": 0.0667,
+    "ev_gain": 0.0762,
+    "timeout_is_optimal": true
+  },
+  {
+    "seconds_remaining": 32,
+    "ev_timeout": 0.1875,
+    "ev_play_on": 0.1388,
+    "ev_gain": 0.0487,
+    "timeout_is_optimal": true
+  },
+  {
+    "seconds_remaining": 34,
+    "ev_timeout": 0.2,
+    "ev_play_on": 0.1355,
+    "ev_gain": 0.0645,
+    "timeout_is_optimal": true
+  },
+  {
+    "seconds_remaining": 36,
+    "ev_timeout": 0.0909,
+    "ev_play_on": 0.1344,
+    "ev_gain": -0.0435,
+    "timeout_is_optimal": false
+  },
+  {
+    "seconds_remaining": 38,
+    "ev_timeout": 0.0625,
+    "ev_play_on": 0.1429,
+    "ev_gain": -0.0804,
+    "timeout_is_optimal": false
+  },
+  {
+    "seconds_remaining": 40,
+    "ev_timeout": 0.0,
+    "ev_play_on": 0.1503,
+    "ev_gain": -0.1503,
+    "timeout_is_optimal": false
+  },
+  {
+    "seconds_remaining": 42,
+    "ev_timeout": 0.0667,
+    "ev_play_on": 0.1869,
+    "ev_gain": -0.1202,
+    "timeout_is_optimal": false
+  },
+  {
+    "seconds_remaining": 44,
+    "ev_timeout": 0.3333,
+    "ev_play_on": 0.2414,
+    "ev_gain": 0.092,
+    "timeout_is_optimal": true
+  },
+  {
+    "seconds_remaining": 46,
+    "ev_timeout": 0.3684,
+    "ev_play_on": 0.2447,
+    "ev_gain": 0.1237,
+    "timeout_is_optimal": true
+  },
+  {
+    "seconds_remaining": 48,
+    "ev_timeout": 0.1429,
+    "ev_play_on": 0.1854,
+    "ev_gain": -0.0425,
+    "timeout_is_optimal": false
+  },
+  {
+    "seconds_remaining": 50,
+    "ev_timeout": 0.2857,
+    "ev_play_on": 0.1702,
+    "ev_gain": 0.1155,
+    "timeout_is_optimal": true
+  }
+]

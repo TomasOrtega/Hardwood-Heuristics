@@ -4,16 +4,14 @@
 
 ## Introduction
 
-**NBA Folk Theorems** is an empirical research project that investigates the final three
-minutes of NBA games to *quantitatively* prove or disprove common basketball strategies
-that coaches and analysts have debated for decades.
+**NBA Folk Theorems** is an empirical research project that examines the final three
+minutes of NBA games to *quantitatively* test common basketball strategies coaches
+and analysts have debated for decades.
 
-We scrape five seasons of NBA play-by-play data (2019–24), convert the raw event log
-into a flat historical possession log, and use **pandas aggregations** to compute actual
-historical win percentages for each strategic choice.
+We use five seasons of NBA play-by-play data (2019–24) and **pandas aggregations**
+to compute actual historical win percentages for each strategic choice.
 
-Conclusions are based strictly on what *actually happened* in real games — not on
-theoretical probability models.
+Conclusions are based strictly on what *actually happened* in real games.
 
 ---
 
@@ -39,11 +37,9 @@ we record:
 
 For each theorem we:
 
-1. **Filter** the historical log to the relevant game situation (e.g., tied games with 24–40 s left).
-2. **Group** possessions by the strategic action taken (e.g., `shoot` vs. other).
-3. **Aggregate** — compute `mean(game_outcome)` for each group, which is the historical win percentage for the home team.
-
-Conclusions reflect what percentage of the time teams *won* after making each choice.
+1. **Filter** the historical log to the relevant game situation.
+2. **Group** possessions by the strategic action taken.
+3. **Aggregate** — compute `mean(game_outcome)` for each group (historical win %).
 
 ### Shooting Statistics (2019–24 Reference)
 
@@ -81,16 +77,20 @@ Hardwood-Heuristics/
 
 | # | Name | Claim |
 |---|------|-------|
-| [1](theorem1_two_for_one.md) | The 2-for-1 | Rushing a shot with ~32 s left to gain an extra possession historically increases win rate |
-| [2](theorem2_foul_up_3.md)   | Foul Up 3   | Intentionally fouling when leading by 3 with < 12 s left historically increases win rate vs. normal defence |
+| [1](theorem1_two_for_one.md) | The 2-for-1 | Rushing a shot to secure two possessions shows a positive historical signal, but no sharp clock threshold |
+| [2](theorem2_foul_up_3.md)   | Foul Up 3   | Intentionally fouling when leading by 3 with < 12 s left historically increases win rate, especially vs. good shooters |
+| [3](theorem3_timeout.md)     | The Late-Game Timeout | Calling a timeout when trailing with 20–50 s left and possession does not consistently improve win rate |
 
 ---
 
 ## Getting Started
 
 ```bash
-# Install dependencies
+# Install dependencies (pip)
 pip install -e ".[dev]"
+
+# Install dependencies (uv — faster)
+uv pip install -e ".[dev]"
 
 # Run tests
 pytest tests/ -v

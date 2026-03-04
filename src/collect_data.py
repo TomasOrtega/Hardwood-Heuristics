@@ -25,6 +25,7 @@ Saved artefacts (written to ``data/processed/``)
 * ``theorem2_wp_foul_grid.npy``    – Historical win rate when fouling (per cell).
 * ``theorem2_wp_no_foul_grid.npy`` – Historical win rate without fouling (per cell).
 * ``theorem2_metadata.json``       – Parameter labels (time_values, fg3_pct_values).
+* ``theorem3_sweep.json``          – Historical win-rate sweep for Theorem 3 (Late-Game Timeout).
 """
 
 from __future__ import annotations
@@ -212,6 +213,72 @@ def _collect_theorem2(
     return grid_path, meta_path
 
 
+def _collect_theorem3(
+    out_dir: Path,
+    processed_dir: Optional[Path] = None,
+) -> Path:
+    """
+    Compute Theorem 3 (Late-Game Timeout) historical win rates and save to JSON.
+
+    Filters the historical log for close games where the home team has
+    possession and is trailing by 1–3 points or tied, with 20–50 seconds
+    remaining.  Groups possessions by whether the team called a timeout
+    ('timeout') or played on (any other action).  Calculates the mean
+    game_outcome (historical win percentage for the home team) for each
+    2-second time bucket.
+    """
+    if processed_dir is None:
+        processed_dir = out_dir
+
+    df = _load_historical_log(processed_dir)
+    logger.info("Computing Theorem 3 (Late-Game Timeout) historical win rates...")
+
+    sweep = []
+
+    # Close games: home team trailing (−3 to 0) or tied, home has possession
+    if not df.empty:
+        mask = (
+            (df["score_differential"].between(-3, 0))
+            & (df["possession"] == 1)
+        )
+        close = df[mask]
+    else:
+        close = df
+
+    for sec in range(20, 51, 2):
+        if close.empty:
+            sweep.append({
+                "seconds_remaining": sec,
+                "ev_timeout": _DEFAULT_WIN_RATE,
+                "ev_play_on": _DEFAULT_WIN_RATE,
+                "ev_gain": 0.0,
+                "timeout_is_optimal": False,
+            })
+            continue
+
+        window = close[close["seconds_remaining"].between(sec - _TIME_WINDOW_S, sec + _TIME_WINDOW_S)]
+        timeout_outcomes = window.loc[window["action_taken"] == "timeout", "game_outcome"]
+        play_on_outcomes = window.loc[window["action_taken"] != "timeout", "game_outcome"]
+
+        ev_timeout = float(timeout_outcomes.mean()) if len(timeout_outcomes) > 0 else _DEFAULT_WIN_RATE
+        ev_play_on = float(play_on_outcomes.mean()) if len(play_on_outcomes) > 0 else _DEFAULT_WIN_RATE
+        ev_gain = ev_timeout - ev_play_on
+
+        sweep.append({
+            "seconds_remaining": sec,
+            "ev_timeout": round(ev_timeout, 4),
+            "ev_play_on": round(ev_play_on, 4),
+            "ev_gain": round(ev_gain, 4),
+            "timeout_is_optimal": ev_gain > 0,
+        })
+
+    out_path = out_dir / "theorem3_sweep.json"
+    with open(out_path, "w") as f:
+        json.dump(sweep, f, indent=2)
+    logger.info("Saved Theorem 3 sweep to %s", out_path)
+    return out_path
+
+
 # ---------------------------------------------------------------------------
 # Registry – maps theorem key to collection function.
 # Add new theorems here; each function must accept (out_dir, processed_dir).
@@ -219,6 +286,7 @@ def _collect_theorem2(
 _COLLECTORS: Dict[str, Callable[..., Any]] = {
     "theorem1": _collect_theorem1,
     "theorem2": _collect_theorem2,
+    "theorem3": _collect_theorem3,
 }
 
 
@@ -233,6 +301,11 @@ def collect_theorem1(out_dir: Path = PROCESSED_DIR) -> Path:
 def collect_theorem2(out_dir: Path = PROCESSED_DIR) -> tuple[Path, Path]:
     """Public wrapper kept for backwards compatibility."""
     return _collect_theorem2(out_dir)
+
+
+def collect_theorem3(out_dir: Path = PROCESSED_DIR) -> Path:
+    """Public wrapper for Theorem 3 (Late-Game Timeout)."""
+    return _collect_theorem3(out_dir)
 
 
 def collect_all(out_dir: Path = PROCESSED_DIR) -> None:
