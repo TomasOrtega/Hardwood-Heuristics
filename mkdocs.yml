@@ -1,10 +1,10 @@
-site_name: NBA Folk Theorems
-site_description: Empirical MDP analysis of late-game basketball strategies
+site_name: Hardwood Heuristics
+site_description: Empirical analysis of NBA folk wisdom
 site_author: Hardwood Heuristics Team
-site_url: https://hardwood-heuristics.github.io/Hardwood-Heuristics/
+site_url: https://tomasortega.github.io/Hardwood-Heuristics/
 
-repo_name: Hardwood-Heuristics/Hardwood-Heuristics
-repo_url: https://github.com/Hardwood-Heuristics/Hardwood-Heuristics
+repo_name: TomasOrtega/Hardwood-Heuristics
+repo_url: https://github.com/TomasOrtega/Hardwood-Heuristics
 
 theme:
   name: zensical
