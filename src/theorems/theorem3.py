@@ -11,7 +11,6 @@ full data-collection pipeline.
 
 from __future__ import annotations
 
-import csv
 import logging
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -19,6 +18,8 @@ from typing import Dict, List, Optional
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
+
+from src.theorems.utils import load_sweep_csv, write_sweep_csv
 
 matplotlib.use("Agg")
 
@@ -129,7 +130,7 @@ def collect(
         )
 
     out_path = out_dir / CSV_FILENAME
-    _write_csv(
+    write_sweep_csv(
         out_path,
         rows,
         fieldnames=[
@@ -142,43 +143,6 @@ def collect(
     )
     logger.info("Saved Theorem 3 sweep to %s", out_path)
     return out_path
-
-
-# ---------------------------------------------------------------------------
-# CSV helpers
-# ---------------------------------------------------------------------------
-
-
-def _write_csv(path: Path, rows: List[Dict], fieldnames: List[str]) -> None:
-    with open(path, "w", newline="") as fh:
-        writer = csv.DictWriter(fh, fieldnames=fieldnames)
-        writer.writeheader()
-        writer.writerows(rows)
-
-
-def load_sweep(processed_dir: Path) -> List[Dict]:
-    """Load the Theorem 3 sweep from CSV and return a list of row dicts."""
-    csv_path = processed_dir / CSV_FILENAME
-    if not csv_path.exists():
-        raise FileNotFoundError(
-            f"Theorem 3 data not found at {csv_path}. "
-            "Run `python -m src.collect_data` first."
-        )
-    rows: List[Dict] = []
-    with open(csv_path, newline="") as fh:
-        reader = csv.DictReader(fh)
-        for row in reader:
-            rows.append(
-                {
-                    "seconds_remaining": int(row["seconds_remaining"]),
-                    "ev_timeout": float(row["ev_timeout"]),
-                    "ev_play_on": float(row["ev_play_on"]),
-                    "ev_gain": float(row["ev_gain"]),
-                    "timeout_is_optimal": row["timeout_is_optimal"].strip().lower()
-                    == "true",
-                }
-            )
-    return rows
 
 
 # ---------------------------------------------------------------------------
@@ -209,7 +173,7 @@ def plot(
     -------
     Path to the saved SVG file.
     """
-    sweep = load_sweep(processed_dir)
+    sweep = load_sweep_csv(processed_dir / CSV_FILENAME)
     out_path = images_dir / FIGURE_FILENAME
 
     seconds = [r["seconds_remaining"] for r in sweep]
@@ -367,7 +331,7 @@ def generate_doc(
         _build_theorem3_conclusion,
     )
 
-    sweep = load_sweep(processed_dir)
+    sweep = load_sweep_csv(processed_dir / CSV_FILENAME)
 
     e40 = _find_sweep_entry(sweep, 40)
     e30 = _find_sweep_entry(sweep, 30)

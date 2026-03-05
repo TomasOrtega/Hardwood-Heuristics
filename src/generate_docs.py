@@ -224,9 +224,9 @@ def _generate_theorem1_doc(
     docs_dir: Path = DOCS_DIR,
 ) -> Path:
     """Load Theorem 1 sweep data and write the theorem1 Markdown file."""
-    from src.theorems.theorem1 import load_sweep
+    from src.theorems.utils import load_sweep_csv
 
-    sweep: List[Dict] = load_sweep(processed_dir)
+    sweep: List[Dict] = load_sweep_csv(processed_dir / "theorem1_sweep.csv")
 
     e32 = _find_sweep_entry(sweep, 32)
     e40 = _find_sweep_entry(sweep, 40)
@@ -751,9 +751,9 @@ def _generate_theorem3_doc(
     docs_dir: Path = DOCS_DIR,
 ) -> Path:
     """Load Theorem 3 sweep data and write the theorem3 Markdown file."""
-    from src.theorems.theorem3 import load_sweep
+    from src.theorems.utils import load_sweep_csv
 
-    sweep: List[Dict] = load_sweep(processed_dir)
+    sweep: List[Dict] = load_sweep_csv(processed_dir / "theorem3_sweep.csv")
 
     def _find(sec: int) -> Dict:
         return _find_sweep_entry(sweep, sec)
