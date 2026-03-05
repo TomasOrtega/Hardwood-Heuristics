@@ -236,26 +236,6 @@ def plot(
     ax2.set_title("Win % Gain: Rush − Normal  (green = rushing is better)")
     ax2.grid(True, alpha=0.3, axis="y")
 
-    crossover_seconds: Optional[int] = None
-    for i in range(1, len(ev_gain)):
-        if ev_gain[i - 1] < 0 and ev_gain[i] >= 0:
-            crossover_seconds = seconds[i]
-            break
-        if ev_gain[i - 1] >= 0 and ev_gain[i] < 0:
-            crossover_seconds = seconds[i - 1]
-            break
-
-    if crossover_seconds is not None:
-        ax2.axvline(
-            crossover_seconds,
-            color="black",
-            linewidth=1.4,
-            linestyle=":",
-            alpha=0.7,
-            label=f"Crossover ≈ {crossover_seconds}s",
-        )
-        ax2.legend(loc="upper right")
-
     plt.tight_layout()
     fig.savefig(out_path, dpi=FIGURE_DPI, bbox_inches="tight")
     plt.close(fig)
@@ -272,10 +252,10 @@ _TEMPLATE = """\
 
 ## Claim
 
-> **Based on NBA play-by-play data from 2019--2024, teams that rush a shot
-> to secure two possessions before time expires sometimes win at a higher
-> historical rate — but there is no sharp, reliable clock threshold where
-> this advantage switches on.**
+> **Based on NBA play-by-play data from 2019--2024, rushing a shot in tied
+> games shows a positive win-rate signal around 18--22 seconds remaining.
+> The effect is noisy and no single threshold reliably separates when
+> rushing helps from when it hurts.**
 
 ---
 
@@ -362,38 +342,22 @@ def generate_doc(
 
     if window_low == 0 and window_high == 0:
         conclusion = (
-            "**The historical data does not show a consistent rushing advantage** "
-            "across the analyzed range. Normal possession is at least as good in all "
-            "studied time buckets. The conventional 2-for-1 wisdom is not confirmed by "
-            "this sample — coaches should not sacrifice shot quality on clock alone."
+            "**No consistent rushing advantage found** in the historical data. "
+            "Normal possession performs at least as well across all analyzed time "
+            "buckets. Do not sacrifice shot quality based on the clock alone."
         )
     elif window_covers_full_range:
         conclusion = (
-            f"**The historical data shows a modest rush advantage across the full analyzed "
-            f"range ({sweep_min}--{sweep_max} s)**, but the gain is small and the threshold "
-            "is not sharp. Shooting immediately is historically at least as good as holding, "
-            "but the margin is narrow enough that shot quality matters more than the exact "
-            "clock value. Coaches should push the pace when a good shot is available, not "
-            "sacrifice shot quality chasing a specific second count."
+            f"**Rushing shows a modest advantage across the full analyzed range "
+            f"({sweep_min}--{sweep_max} s)**, but the gain is small and the results "
+            "are noisy. Shot quality matters more than the exact clock value."
         )
     else:
-        above_neg = [
-            e["seconds_remaining"]
-            for e in sorted_sweep
-            if e["seconds_remaining"] > window_high and e["ev_gain"] <= 0
-        ]
-        caution = (
-            f" Rushing at {above_neg[0]}+ seconds can reduce win probability."
-            if above_neg
-            else ""
-        )
         conclusion = (
-            f"**The 2-for-1 shows a positive signal in roughly the {window_low}--"
-            f"{window_high} s range**, but there is no sharp, reliable threshold — "
-            f"individual second-by-second results are noisy.{caution} "
-            "Use this as a directional guide: favour rushing when a good shot is "
-            "available in this window, but do not sacrifice shot quality for a "
-            "specific clock value."
+            f"**The 2-for-1 shows a positive signal around the {window_low}--"
+            f"{window_high} s range**, but results are noisy across individual "
+            "time buckets. Favour rushing when a good shot is available in this "
+            "window, but do not sacrifice shot quality for a specific clock value."
         )
 
     from src.generate_docs import _build_theorem1_key_findings

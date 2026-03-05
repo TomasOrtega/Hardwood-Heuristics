@@ -317,9 +317,10 @@ def generate_doc(
 
 ## Claim
 
-> **Based on NBA play-by-play data from 2019--2024, teams leading by 3 points
-> with fewer than 12 seconds remaining generally win more often when they
-> intentionally foul — especially against good three-point shooters.**
+> **Based on NBA play-by-play data from 2019--2024, intentionally fouling
+> when leading by 3 with fewer than 12 seconds remaining shows mixed
+> results — outcomes depend on time remaining and are not consistently
+> better in this historical sample.**
 
 ---
 
@@ -364,11 +365,12 @@ Data from 5 NBA seasons (2019--2024):
 
 ## Sensitivity Analysis
 
-The key driver is the **opponent's 3PT%** — a higher shooting rate makes
-allowing a three-point attempt more costly.
+Results vary by **time remaining** — the opponent's 3PT% does not explain the
+variation in this historical sample.
 
 Analyzed range ({fg3_min:.0%}--{fg3_max:.0%} opponent 3PT%):
-win % gain from fouling ranges from {min_gain_pp:.1f} pp to +{max_gain_pp:.1f} pp.
+win % gain from fouling ranges from {min_gain_pp:.1f} pp to +{max_gain_pp:.1f} pp
+(driven by time remaining, not shooting %).
 
 ---
 
