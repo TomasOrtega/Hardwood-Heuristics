@@ -218,7 +218,7 @@ def plot_two_for_one_ev_curve(
 # ---------------------------------------------------------------------------
 def _plot_theorem2(processed_dir: Path = PROCESSED_DIR, images_dir: Path = IMAGES_DIR) -> Path:
     """Load Theorem 2 data and save the Foul-Up-3 heatmap."""
-    t2_grid_path = processed_dir / "theorem2_grid.npy"
+    t2_grid_path = processed_dir / "theorem2_grid.csv"
     t2_meta_path = processed_dir / "theorem2_metadata.json"
     if not (t2_grid_path.exists() and t2_meta_path.exists()):
         raise FileNotFoundError(
@@ -226,7 +226,7 @@ def _plot_theorem2(processed_dir: Path = PROCESSED_DIR, images_dir: Path = IMAGE
             "Run `python -m src.collect_data` first."
         )
     logger.info("Loading pre-computed Theorem 2 data from %s", t2_grid_path)
-    grid = np.load(t2_grid_path)
+    grid = np.loadtxt(t2_grid_path, delimiter=",")
     with open(t2_meta_path) as f:
         meta = json.load(f)
     time_values = meta["time_values"]
