@@ -136,22 +136,6 @@ of games where the home team went on to win given that choice.
 
 ![2-for-1 Win Percentage Curve](assets/images/two_for_one_ev_curve.svg)
 
-### Key Findings
-
-{key_findings}
-
-### Historical Data Summary
-
-Data from 5 NBA seasons (2019--2024):
-
-| Scenario | Rush Win % | Hold Win % | Win % Gain | Better Strategy |
-|----------|-----------|-----------|------------|----------------|
-| 32 s, tied | {ev_rush_32} | {ev_normal_32} | {ev_gain_32} | {optimal_32} |
-| 40 s, tied | {ev_rush_40} | {ev_normal_40} | {ev_gain_40} | {optimal_40} |
-| 20 s, tied | {ev_rush_20} | {ev_normal_20} | {ev_gain_20} | {optimal_20} |
-
-> *Values are historical win percentages from NBA play-by-play data, 2019--2024.*
-
 ---
 
 ## Conclusion
@@ -231,10 +215,6 @@ def _generate_theorem1_doc(
 
     sweep: List[Dict] = load_sweep_csv(processed_dir / "theorem1_sweep.csv")
 
-    e32 = _find_sweep_entry(sweep, 32)
-    e40 = _find_sweep_entry(sweep, 40)
-    e20 = _find_sweep_entry(sweep, 20)
-
     main_window = _largest_window(sweep)
     window_low, window_high = main_window
 
@@ -266,26 +246,8 @@ def _generate_theorem1_doc(
             "window, but do not sacrifice shot quality for a specific clock value."
         )
 
-    key_findings = _build_theorem1_key_findings(sweep)
-
-    def _optimal_label(gain: float) -> str:
-        return "Rush ✓" if gain > 0 else "Normal ✓"
-
     content = _THEOREM1_TEMPLATE.format(
-        key_findings=key_findings,
         conclusion=conclusion,
-        ev_rush_32=_fmt_ev(e32["ev_rush"]),
-        ev_normal_32=_fmt_ev(e32["ev_normal"]),
-        ev_gain_32=_gain_label(e32["ev_gain"]),
-        optimal_32=_optimal_label(e32["ev_gain"]),
-        ev_rush_40=_fmt_ev(e40["ev_rush"]),
-        ev_normal_40=_fmt_ev(e40["ev_normal"]),
-        ev_gain_40=_gain_label(e40["ev_gain"]),
-        optimal_40=_optimal_label(e40["ev_gain"]),
-        ev_rush_20=_fmt_ev(e20["ev_rush"]),
-        ev_normal_20=_fmt_ev(e20["ev_normal"]),
-        ev_gain_20=_gain_label(e20["ev_gain"]),
-        optimal_20=_optimal_label(e20["ev_gain"]),
     )
 
     out_path = docs_dir / "theorem1_two_for_one.md"
@@ -330,23 +292,6 @@ and compute the home-team historical win percentage for each.
 
 The heatmap shows the historical win % gain from fouling (green = fouling better,
 red = normal defence better) across time remaining and opponent 3PT%.
-
-### Key Findings
-
-{key_findings}
-
-### Historical Data Summary
-
-Data from 5 NBA seasons (2019--2024):
-
-| Seconds | Opp 3PT% | Foul Win % | No-Foul Win % | Win % Gain |
-|---------|----------|-----------|---------------|------------|
-| 8 s | 30 % | {wp_foul_8_30} | {wp_no_foul_8_30} | {wp_gain_8_30} |
-| 8 s | 35 % | {wp_foul_8_35} | {wp_no_foul_8_35} | {wp_gain_8_35} |
-| 8 s | 40 % | {wp_foul_8_40} | {wp_no_foul_8_40} | {wp_gain_8_40} |
-| 4 s | 35 % | {wp_foul_4_35} | {wp_no_foul_4_35} | {wp_gain_4_35} |
-
-> *Values are historical win percentages from NBA play-by-play data, 2019--2024.*
 
 ---
 
@@ -594,8 +539,6 @@ def _generate_theorem2_doc(
 ) -> Path:
     """Load Theorem 2 sweep data and write the theorem2 Markdown file."""
     grid_path = processed_dir / "theorem2_grid.csv"
-    foul_path = processed_dir / "theorem2_wp_foul_grid.csv"
-    no_foul_path = processed_dir / "theorem2_wp_no_foul_grid.csv"
     meta_path = processed_dir / "theorem2_metadata.json"
 
     for p in (grid_path, meta_path):
@@ -613,31 +556,6 @@ def _generate_theorem2_doc(
 
     gain_grid = np.loadtxt(grid_path, delimiter=",")
 
-    if foul_path.exists() and no_foul_path.exists():
-        wp_foul_grid = np.loadtxt(foul_path, delimiter=",")
-        wp_no_foul_grid = np.loadtxt(no_foul_path, delimiter=",")
-    else:
-        logger.warning(
-            "Individual WP grids not found; reconstructing from gain grid. "
-            "Re-run `python -m src.collect_data` to cache them."
-        )
-        # Reconstruct approximate values: assume a neutral default for wp_foul
-        wp_foul_grid = np.full_like(gain_grid, 0.5)
-        wp_no_foul_grid = wp_foul_grid - gain_grid
-
-    def _cell(grids: tuple, sec: int, fg3: float) -> tuple[float, float, float]:
-        wp_foul_g, wp_no_foul_g, gain_g = grids
-        i = time_values.index(sec)
-        j = min(range(len(fg3_values)), key=lambda k: abs(fg3_values[k] - fg3))
-        return float(wp_foul_g[i, j]), float(wp_no_foul_g[i, j]), float(gain_g[i, j])
-
-    grids = (wp_foul_grid, wp_no_foul_grid, gain_grid)
-
-    wf_8_30, wn_8_30, wg_8_30 = _cell(grids, 8, 0.30)
-    wf_8_35, wn_8_35, wg_8_35 = _cell(grids, 8, 0.35)
-    wf_8_40, wn_8_40, wg_8_40 = _cell(grids, 8, 0.40)
-    wf_4_35, wn_4_35, wg_4_35 = _cell(grids, 4, 0.35)
-
     # Compute the data-driven threshold: lowest fg3% column where fouling is
     # beneficial at EVERY analyzed time value.
     always_positive_fg3 = [
@@ -647,7 +565,6 @@ def _generate_theorem2_doc(
     ]
     threshold_low = min(always_positive_fg3) if always_positive_fg3 else fg3_values[-1]
 
-    key_findings = _build_theorem2_key_findings(gain_grid, time_values, fg3_values)
     sensitivity_analysis = _build_theorem2_sensitivity(gain_grid, time_values, fg3_values)
     conclusion = _build_theorem2_conclusion(
         gain_grid, time_values, fg3_values, threshold_low
@@ -658,21 +575,8 @@ def _generate_theorem2_doc(
         fg3_max=max(fg3_values),
         min_gain_pp=float(gain_grid.min() * 100),
         max_gain_pp=float(gain_grid.max() * 100),
-        key_findings=key_findings,
         sensitivity_analysis=sensitivity_analysis,
         conclusion=conclusion,
-        wp_foul_8_30=_fmt_ev(wf_8_30),
-        wp_no_foul_8_30=_fmt_ev(wn_8_30),
-        wp_gain_8_30=_fmt_gain(wg_8_30, pp=True),
-        wp_foul_8_35=_fmt_ev(wf_8_35),
-        wp_no_foul_8_35=_fmt_ev(wn_8_35),
-        wp_gain_8_35=_fmt_gain(wg_8_35, pp=True),
-        wp_foul_8_40=_fmt_ev(wf_8_40),
-        wp_no_foul_8_40=_fmt_ev(wn_8_40),
-        wp_gain_8_40=_fmt_gain(wg_8_40, pp=True),
-        wp_foul_4_35=_fmt_ev(wf_4_35),
-        wp_no_foul_4_35=_fmt_ev(wn_4_35),
-        wp_gain_4_35=_fmt_gain(wg_4_35, pp=True),
     )
 
     out_path = docs_dir / "theorem2_foul_up_3.md"
@@ -717,22 +621,6 @@ each group across a sweep of time-remaining values.
 ## Results
 
 ![Late-Game Timeout Win Percentage Curve](assets/images/timeout_ev_curve.svg)
-
-### Key Findings
-
-{key_findings}
-
-### Historical Data Summary
-
-Data from 5 NBA seasons (2019--2024):
-
-| Seconds | Timeout Win % | Play-On Win % | Win % Gain | Better Strategy |
-|---------|--------------|--------------|------------|----------------|
-| 40 s | {ev_timeout_40} | {ev_play_on_40} | {ev_gain_40} | {optimal_40} |
-| 30 s | {ev_timeout_30} | {ev_play_on_30} | {ev_gain_30} | {optimal_30} |
-| 20 s | {ev_timeout_20} | {ev_play_on_20} | {ev_gain_20} | {optimal_20} |
-
-> *Values are historical win percentages from NBA play-by-play data, 2019--2024.*
 
 ---
 
@@ -883,34 +771,10 @@ def _generate_theorem3_doc(
 
     sweep: List[Dict] = load_sweep_csv(processed_dir / "theorem3_sweep.csv")
 
-    def _find(sec: int) -> Dict:
-        return _find_sweep_entry(sweep, sec)
-
-    e40 = _find(40)
-    e30 = _find(30)
-    e20 = _find(20)
-
-    def _optimal_label(gain: float) -> str:
-        return "Timeout ✓" if gain > 0 else "Play On ✓"
-
-    key_findings = _build_theorem3_key_findings(sweep)
     conclusion = _build_theorem3_conclusion(sweep)
 
     content = _THEOREM3_TEMPLATE.format(
-        key_findings=key_findings,
         conclusion=conclusion,
-        ev_timeout_40=_fmt_ev(e40["ev_timeout"]),
-        ev_play_on_40=_fmt_ev(e40["ev_play_on"]),
-        ev_gain_40=_gain_label(e40["ev_gain"]),
-        optimal_40=_optimal_label(e40["ev_gain"]),
-        ev_timeout_30=_fmt_ev(e30["ev_timeout"]),
-        ev_play_on_30=_fmt_ev(e30["ev_play_on"]),
-        ev_gain_30=_gain_label(e30["ev_gain"]),
-        optimal_30=_optimal_label(e30["ev_gain"]),
-        ev_timeout_20=_fmt_ev(e20["ev_timeout"]),
-        ev_play_on_20=_fmt_ev(e20["ev_play_on"]),
-        ev_gain_20=_gain_label(e20["ev_gain"]),
-        optimal_20=_optimal_label(e20["ev_gain"]),
     )
 
     out_path = docs_dir / "theorem3_timeout.md"

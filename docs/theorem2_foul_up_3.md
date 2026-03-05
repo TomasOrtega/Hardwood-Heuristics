@@ -30,33 +30,6 @@ and compute the home-team historical win percentage for each.
 The heatmap shows the historical win % gain from fouling (green = fouling better,
 red = normal defence better) across time remaining and opponent 3PT%.
 
-### Key Findings
-
-1. **Fouling is most beneficial with 4--8 seconds remaining and a high-percentage
-   3PT shooter (≥ 30%).** The heatmap shows the largest positive values in this
-   region.
-
-2. **Against average-to-below-average 3PT shooters (≤ 25%), normal defense is
-   competitive** because the probability of a made 3-pointer is low enough that
-   the risk of cutting the lead to 1 (via free throws) is not worth taking.
-
-3. **With only 2 seconds left, the strategy matters less** — there is barely
-   enough time for either a clean 3PT attempt or a fast-foul scenario. Both
-   strategies converge to similar historical win percentages.
-
-### Historical Data Summary
-
-Data from 5 NBA seasons (2019--2024):
-
-| Seconds | Opp 3PT% | Foul Win % | No-Foul Win % | Win % Gain |
-|---------|----------|-----------|---------------|------------|
-| 8 s | 30 % | 0.50 | 0.46 | **+3.9 pp** |
-| 8 s | 35 % | 0.00 | 0.45 | -45.5 pp |
-| 8 s | 40 % | 0.50 | 0.25 | **+25.0 pp** |
-| 4 s | 35 % | 0.75 | 0.58 | **+16.7 pp** |
-
-> *Values are historical win percentages from NBA play-by-play data, 2019--2024.*
-
 ---
 
 ## Sensitivity Analysis

@@ -302,10 +302,9 @@ class TestGenerateTheorem1Doc:
         _generate_theorem1_doc(processed_dir=tmp_path, docs_dir=tmp_path)
         content = (tmp_path / "theorem1_two_for_one.md").read_text()
 
-        # Values at 32s should appear in the doc
-        e32 = _find_sweep_entry(sweep, 32)
-        assert f"{e32['ev_rush']:.2f}" in content
-        assert f"{e32['ev_normal']:.2f}" in content
+        # The figure and conclusion should be present
+        assert "two_for_one_ev_curve.svg" in content
+        assert "## Conclusion" in content
 
     def test_missing_data_raises(self, tmp_path):
         with pytest.raises(FileNotFoundError):
@@ -442,8 +441,10 @@ class TestGenerateTheorem3Doc:
         _write_theorem3_data(tmp_path, sweep)
         _generate_theorem3_doc(processed_dir=tmp_path, docs_dir=tmp_path)
         content = (tmp_path / "theorem3_timeout.md").read_text()
-        e40 = _find_sweep_entry(sweep, 40)
-        assert f"{e40['ev_timeout']:.2f}" in content
+
+        # The figure and conclusion should be present
+        assert "timeout_ev_curve.svg" in content
+        assert "## Conclusion" in content
 
     def test_missing_data_raises(self, tmp_path):
         with pytest.raises(FileNotFoundError):
