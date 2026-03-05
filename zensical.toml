@@ -21,6 +21,8 @@ extra_javascript = [
 
 [project.theme]
 language = "en"
+logo = "assets/logo/site_icon.svg"
+favicon = "assets/logo/site_icon.svg"
 features = [
   "navigation.tabs",
   "navigation.top",
