@@ -28,6 +28,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
 
+from src.theorems.utils import get_resolved_possessions_at_time
+
 matplotlib.use("Agg")
 
 logger = logging.getLogger(__name__)
@@ -38,7 +40,6 @@ DOC_FILENAME = "theorem2_foul_up_3.md"
 
 # Default win rate used when a bucket has no historical observations
 _DEFAULT_WIN_RATE = 0.5
-_TIME_WINDOW_S = 1
 
 # Consistent aesthetics
 PALETTE = "RdYlGn"
@@ -84,25 +85,18 @@ def collect(
     wp_foul_grid = np.zeros((n_time, n_fg3))
     wp_no_foul_grid = np.zeros((n_time, n_fg3))
 
-    if not df.empty:
-        mask = (
-            (df["score_differential"] == 3)
-            & (df["possession"] == 0)
-            & (df["seconds_remaining"] < 12)
-        )
-        filtered = df[mask]
-    else:
-        filtered = df
-
     for i, sec in enumerate(time_values):
-        if filtered.empty:
-            window = filtered
-        else:
-            window = filtered[
-                filtered["seconds_remaining"].between(
-                    sec - _TIME_WINDOW_S, sec + _TIME_WINDOW_S
-                )
-            ]
+        if df.empty:
+            for j in range(n_fg3):
+                wp_foul_grid[i, j] = _DEFAULT_WIN_RATE
+                wp_no_foul_grid[i, j] = _DEFAULT_WIN_RATE
+                grid[i, j] = 0.0
+            continue
+
+        resolved = get_resolved_possessions_at_time(df, sec)
+        window = resolved[
+            (resolved["score_differential"] == 3) & (resolved["possession"] == 0)
+        ]
 
         for j, fg3 in enumerate(fg3_values):
             if window.empty or "opponent_fg3_pct" not in window.columns:

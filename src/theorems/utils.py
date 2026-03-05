@@ -15,6 +15,9 @@ from typing import Dict, List
 import numpy as np
 import pandas as pd
 
+# Total seconds in the final period tracked by the historical log.
+_PERIOD_SECONDS = 180
+
 
 def write_sweep_csv(path: Path, rows: List[Dict], fieldnames: List[str]) -> None:
     """Write a list of row dicts to *path* as a CSV using pandas.
@@ -73,6 +76,80 @@ def load_sweep_csv(csv_path: Path) -> List[Dict]:
             }
         )
     return rows
+
+
+def get_resolved_possessions_at_time(
+    df: pd.DataFrame, target_sec: int
+) -> pd.DataFrame:
+    """Return one resolved possession row per game at *target_sec*.
+
+    Uses ``pd.merge_asof`` (temporal join) to avoid the survivorship bias
+    introduced by a fixed time-window filter.  Play-by-play data only logs
+    discrete events, so a window filter silently misses possessions where the
+    clock ran without an event.  ``merge_asof`` instead:
+
+    * looks *backward* to get the most recent game state (score, possession,
+      opponent 3PT%) at or just before *target_sec*, and
+    * looks *forward* to get the very first action taken at or after
+      *target_sec*.
+
+    Parameters
+    ----------
+    df         : historical possession log (output of ``_load_historical_log``).
+    target_sec : seconds remaining at which to resolve each game's state.
+
+    Returns
+    -------
+    DataFrame with one row per game that has a resolved action, containing
+    columns: ``game_id``, ``elapsed_time``, ``score_differential``,
+    ``possession``, ``opponent_fg3_pct``, ``action_taken``, ``game_outcome``.
+    Games with no logged action at or after *target_sec* are excluded.
+    """
+    work = df.copy()
+    work["elapsed_time"] = _PERIOD_SECONDS - work["seconds_remaining"]
+    work = work.sort_values("elapsed_time").reset_index(drop=True)
+
+    target_elapsed = _PERIOD_SECONDS - target_sec
+
+    target_df = pd.DataFrame(
+        {
+            "game_id": work["game_id"].unique(),
+            "elapsed_time": target_elapsed,
+        }
+    ).sort_values("elapsed_time")
+
+    state_cols = [
+        "game_id",
+        "elapsed_time",
+        "score_differential",
+        "possession",
+        "opponent_fg3_pct",
+    ]
+    backward = pd.merge_asof(
+        target_df,
+        work[state_cols],
+        on="elapsed_time",
+        by="game_id",
+        direction="backward",
+    )
+
+    action_cols = ["game_id", "elapsed_time", "action_taken", "game_outcome"]
+    forward = pd.merge_asof(
+        target_df,
+        work[action_cols],
+        on="elapsed_time",
+        by="game_id",
+        direction="forward",
+    )
+
+    result = backward.merge(
+        forward[["game_id", "action_taken", "game_outcome"]],
+        on="game_id",
+        how="left",
+    )
+
+    result = result.dropna(subset=["action_taken"])
+    return result
 
 
 def _to_python(val):

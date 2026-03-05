@@ -19,7 +19,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 
-from src.theorems.utils import load_sweep_csv, write_sweep_csv
+from src.theorems.utils import get_resolved_possessions_at_time, load_sweep_csv, write_sweep_csv
 
 matplotlib.use("Agg")
 
@@ -32,7 +32,6 @@ DOC_FILENAME = "theorem3_timeout.md"
 
 # Default win rate used when a bucket has no historical observations
 _DEFAULT_WIN_RATE = 0.5
-_TIME_WINDOW_S = 1
 
 # Consistent aesthetics
 FIGURE_DPI = 150
@@ -76,14 +75,8 @@ def collect(
 
     rows: List[Dict] = []
 
-    if not df.empty:
-        mask = (df["score_differential"].between(-3, 0)) & (df["possession"] == 1)
-        close = df[mask]
-    else:
-        close = df
-
     for sec in range(20, 51, 2):
-        if close.empty:
+        if df.empty:
             rows.append(
                 {
                     "seconds_remaining": sec,
@@ -95,10 +88,9 @@ def collect(
             )
             continue
 
-        window = close[
-            close["seconds_remaining"].between(
-                sec - _TIME_WINDOW_S, sec + _TIME_WINDOW_S
-            )
+        resolved = get_resolved_possessions_at_time(df, sec)
+        window = resolved[
+            (resolved["score_differential"].between(-3, 0)) & (resolved["possession"] == 1)
         ]
         timeout_outcomes = window.loc[
             window["action_taken"] == "timeout", "game_outcome"
