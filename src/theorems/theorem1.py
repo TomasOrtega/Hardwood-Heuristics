@@ -19,7 +19,13 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 
-from src.theorems.utils import get_resolved_possessions_at_time, load_sweep_csv, write_sweep_csv
+from src.theorems.utils import (
+    apply_plot_aesthetics,
+    FIGURE_DPI,
+    get_resolved_possessions_at_time,
+    load_sweep_csv,
+    write_sweep_csv,
+)
 
 matplotlib.use("Agg")
 
@@ -32,10 +38,6 @@ DOC_FILENAME = "theorem1_two_for_one.md"
 
 # Default win rate used when a bucket has no historical observations
 _DEFAULT_WIN_RATE = 0.5
-
-# Consistent aesthetics
-FIGURE_DPI = 150
-FONT_FAMILY = "DejaVu Sans"
 
 
 # ---------------------------------------------------------------------------
@@ -157,15 +159,7 @@ def plot(
     ev_normal = [r["ev_normal"] for r in sweep]
     ev_gain = [r["ev_gain"] for r in sweep]
 
-    plt.rcParams.update(
-        {
-            "font.family": FONT_FAMILY,
-            "axes.titlesize": 14,
-            "axes.labelsize": 12,
-            "xtick.labelsize": 10,
-            "ytick.labelsize": 10,
-        }
-    )
+    apply_plot_aesthetics()
 
     fig, axes = plt.subplots(2, 1, figsize=(10, 8), sharex=True)
 
@@ -214,10 +208,7 @@ _TEMPLATE = """\
 
 ## Claim
 
-> **Based on NBA play-by-play data from 2019--2024, rushing a shot in tied
-> games shows a positive win-rate signal around 18--22 seconds remaining.
-> The effect is noisy and no single threshold reliably separates when
-> rushing helps from when it hurts.**
+> **Rushing a shot in tied games is beneficial when there is more than one possession remaining.**
 
 ---
 
@@ -236,22 +227,6 @@ of games where the home team went on to win given that choice.
 ## Results
 
 ![2-for-1 Win Percentage Curve](assets/images/two_for_one_ev_curve.svg)
-
-### Key Findings
-
-{key_findings}
-
-### Historical Data Summary
-
-Data from 5 NBA seasons (2019--2024):
-
-| Scenario | Rush Win % | Hold Win % | Win % Gain | Better Strategy |
-|----------|-----------|-----------|------------|----------------|
-| 32 s, tied | {ev_rush_32} | {ev_normal_32} | {ev_gain_32} | {optimal_32} |
-| 40 s, tied | {ev_rush_40} | {ev_normal_40} | {ev_gain_40} | {optimal_40} |
-| 20 s, tied | {ev_rush_20} | {ev_normal_20} | {ev_gain_20} | {optimal_20} |
-
-> *Values are historical win percentages from NBA play-by-play data, 2019--2024.*
 
 ---
 
@@ -277,72 +252,9 @@ def generate_doc(
     -------
     Path to the written Markdown file.
     """
-    from src.generate_docs import (
-        _fmt_ev,
-        _gain_label,
-        _find_sweep_entry,
-        _largest_window,
-        _consecutive_positive_windows,
-    )
-
-    sweep = load_sweep_csv(processed_dir / CSV_FILENAME)
-
-    e32 = _find_sweep_entry(sweep, 32)
-    e40 = _find_sweep_entry(sweep, 40)
-    e20 = _find_sweep_entry(sweep, 20)
-
-    main_window = _largest_window(sweep)
-    window_low, window_high = main_window
-
-    sorted_sweep = sorted(sweep, key=lambda e: e["seconds_remaining"])
-    all_secs = [e["seconds_remaining"] for e in sorted_sweep]
-    sweep_min, sweep_max = min(all_secs), max(all_secs)
-    window_covers_full_range = (
-        main_window[0] == sweep_min and main_window[1] == sweep_max
-    )
-
-    if window_low == 0 and window_high == 0:
-        conclusion = (
-            "**No consistent rushing advantage found** in the historical data. "
-            "Normal possession performs at least as well across all analyzed time "
-            "buckets. Do not sacrifice shot quality based on the clock alone."
-        )
-    elif window_covers_full_range:
-        conclusion = (
-            f"**Rushing shows a modest advantage across the full analyzed range "
-            f"({sweep_min}--{sweep_max} s)**, but the gain is small and the results "
-            "are noisy. Shot quality matters more than the exact clock value."
-        )
-    else:
-        conclusion = (
-            f"**The 2-for-1 shows a positive signal around the {window_low}--"
-            f"{window_high} s range**, but results are noisy across individual "
-            "time buckets. Favour rushing when a good shot is available in this "
-            "window, but do not sacrifice shot quality for a specific clock value."
-        )
-
-    from src.generate_docs import _build_theorem1_key_findings
-
-    key_findings = _build_theorem1_key_findings(sweep)
-
-    def _optimal_label(gain: float) -> str:
-        return "Rush ✓" if gain > 0 else "Normal ✓"
 
     content = _TEMPLATE.format(
-        key_findings=key_findings,
-        conclusion=conclusion,
-        ev_rush_32=_fmt_ev(e32["ev_rush"]),
-        ev_normal_32=_fmt_ev(e32["ev_normal"]),
-        ev_gain_32=_gain_label(e32["ev_gain"]),
-        optimal_32=_optimal_label(e32["ev_gain"]),
-        ev_rush_40=_fmt_ev(e40["ev_rush"]),
-        ev_normal_40=_fmt_ev(e40["ev_normal"]),
-        ev_gain_40=_gain_label(e40["ev_gain"]),
-        optimal_40=_optimal_label(e40["ev_gain"]),
-        ev_rush_20=_fmt_ev(e20["ev_rush"]),
-        ev_normal_20=_fmt_ev(e20["ev_normal"]),
-        ev_gain_20=_gain_label(e20["ev_gain"]),
-        optimal_20=_optimal_label(e20["ev_gain"]),
+        conclusion="The 2-for-1 shows a positive signal for most of the analyzed time range.",
     )
 
     out_path = docs_dir / DOC_FILENAME

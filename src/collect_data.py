@@ -5,7 +5,7 @@ Aggregates historical NBA play-by-play data to compute actual win rates
 for each strategic choice described by the Folk Theorems.
 
 Run this script once to compute and save the historical win-rate results that
-``src/visualizations.py`` needs.  Subsequent runs of the visualization script
+``src/generate_plots.py`` needs.  Subsequent runs of the visualization script
 will load the saved files instead of re-computing them.
 
 Adding a new theorem
@@ -15,8 +15,7 @@ Adding a new theorem
    the output path.
 2. Register the new module in :data:`_COLLECTORS`.
 3. Add corresponding ``plot`` and ``generate_doc`` functions in the same module,
-   and register them in ``visualizations._PLOTTERS`` and
-   ``generate_docs._DOC_GENERATORS``.
+   and register them in ``generate_docs._DOC_GENERATORS``.
 
 Saved artefacts (written to ``data/processed/``)
 -------------------------------------------------
@@ -24,7 +23,6 @@ Saved artefacts (written to ``data/processed/``)
 * ``theorem2_grid.csv``            -- Win-rate-gain grid for Theorem 2 (Foul-Up-3).
 * ``theorem2_wp_foul_grid.csv``    -- Historical win rate when fouling (per cell).
 * ``theorem2_wp_no_foul_grid.csv`` -- Historical win rate without fouling (per cell).
-* ``theorem2_metadata.json``       -- Parameter labels (time_values, fg3_pct_values).
 * ``theorem3_sweep.csv``           -- Historical win-rate sweep for Theorem 3 (Late-Game Timeout).
 """
 
@@ -87,7 +85,7 @@ def _collect_theorem1(
 def _collect_theorem2(
     out_dir: Path,
     processed_dir: Optional[Path] = None,
-) -> tuple[Path, Path]:
+) -> Path:
     """
     Compute Theorem 2 (Foul-Up-3) historical win rates and save grids.
 
@@ -126,16 +124,6 @@ _COLLECTORS: Dict[str, Callable[..., Any]] = {
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
-def collect_theorem1(out_dir: Path = PROCESSED_DIR) -> Path:
-    """Public wrapper kept for backwards compatibility."""
-    return _collect_theorem1(out_dir)
-
-
-def collect_theorem2(out_dir: Path = PROCESSED_DIR) -> tuple[Path, Path]:
-    """Public wrapper kept for backwards compatibility."""
-    return _collect_theorem2(out_dir)
-
-
 def collect_theorem3(out_dir: Path = PROCESSED_DIR) -> Path:
     """Public wrapper for Theorem 3 (Late-Game Timeout)."""
     return _collect_theorem3(out_dir)
@@ -166,5 +154,5 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     collect_all()
     print(
-        "Data collection complete. Run `python -m src.visualizations` to generate plots."
+        "Data collection complete. Run `python -m src.generate_plots` to generate plots."
     )

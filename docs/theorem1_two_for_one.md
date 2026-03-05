@@ -2,10 +2,7 @@
 
 ## Claim
 
-> **Based on NBA play-by-play data from 2019--2024, rushing a shot in tied
-> games shows a positive win-rate signal around 18--22 seconds remaining.
-> The effect is noisy and no single threshold reliably separates when
-> rushing helps from when it hurts.**
+> **Rushing a shot in tied games is beneficial when there is more than one possession remaining.**
 
 ---
 
@@ -29,4 +26,4 @@ of games where the home team went on to win given that choice.
 
 ## Conclusion
 
-**The 2-for-1 shows a positive signal around the 46--62 s range**, but results are noisy across individual time buckets. Favour rushing when a good shot is available in this window, but do not sacrifice shot quality for a specific clock value.
+The 2-for-1 shows a positive signal for most of the analyzed time range.

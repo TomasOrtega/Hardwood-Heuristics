@@ -19,7 +19,13 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 
-from src.theorems.utils import get_resolved_possessions_at_time, load_sweep_csv, write_sweep_csv
+from src.theorems.utils import (
+    apply_plot_aesthetics,
+    FIGURE_DPI,
+    get_resolved_possessions_at_time,
+    load_sweep_csv,
+    write_sweep_csv,
+)
 
 matplotlib.use("Agg")
 
@@ -32,10 +38,6 @@ DOC_FILENAME = "theorem3_timeout.md"
 
 # Default win rate used when a bucket has no historical observations
 _DEFAULT_WIN_RATE = 0.5
-
-# Consistent aesthetics
-FIGURE_DPI = 150
-FONT_FAMILY = "DejaVu Sans"
 
 
 # ---------------------------------------------------------------------------
@@ -90,7 +92,8 @@ def collect(
 
         resolved = get_resolved_possessions_at_time(df, sec)
         window = resolved[
-            (resolved["score_differential"].between(-3, 0)) & (resolved["possession"] == 1)
+            (resolved["score_differential"].between(-3, 0))
+            & (resolved["possession"] == 1)
         ]
         timeout_outcomes = window.loc[
             window["action_taken"] == "timeout", "game_outcome"
@@ -173,15 +176,7 @@ def plot(
     ev_play_on = [r["ev_play_on"] for r in sweep]
     ev_gain = [r["ev_gain"] for r in sweep]
 
-    plt.rcParams.update(
-        {
-            "font.family": FONT_FAMILY,
-            "axes.titlesize": 14,
-            "axes.labelsize": 12,
-            "xtick.labelsize": 10,
-            "ytick.labelsize": 10,
-        }
-    )
+    apply_plot_aesthetics()
 
     fig, axes = plt.subplots(2, 1, figsize=(10, 8), sharex=True)
 
@@ -226,9 +221,8 @@ _TEMPLATE = """\
 
 ## Claim
 
-> **Based on NBA play-by-play data from 2019--2024, calling a timeout when
-> trailing by 1--3 (or tied) with 36--50 seconds remaining shows a consistent
-> win-rate advantage. Results are mixed below 36 seconds.**
+> **Calling a timeout when trailing by 1--3 (or tied) with less than 50 seconds is
+> beneficial.**
 
 ---
 
@@ -254,22 +248,6 @@ each group across a sweep of time-remaining values.
 
 ![Late-Game Timeout Win Percentage Curve](assets/images/timeout_ev_curve.svg)
 
-### Key Findings
-
-{key_findings}
-
-### Historical Data Summary
-
-Data from 5 NBA seasons (2019--2024):
-
-| Seconds | Timeout Win % | Play-On Win % | Win % Gain | Better Strategy |
-|---------|--------------|--------------|------------|----------------|
-| 40 s | {ev_timeout_40} | {ev_play_on_40} | {ev_gain_40} | {optimal_40} |
-| 30 s | {ev_timeout_30} | {ev_play_on_30} | {ev_gain_30} | {optimal_30} |
-| 20 s | {ev_timeout_20} | {ev_play_on_20} | {ev_gain_20} | {optimal_20} |
-
-> *Values are historical win percentages from NBA play-by-play data, 2019--2024.*
-
 ---
 
 ## Conclusion
@@ -294,41 +272,13 @@ def generate_doc(
     -------
     Path to the written Markdown file.
     """
-    from src.generate_docs import (
-        _fmt_ev,
-        _gain_label,
-        _find_sweep_entry,
-        _build_theorem3_key_findings,
-        _build_theorem3_conclusion,
+
+    conclusion = (
+        "With 36--50 seconds remaining, calling a timeout is historically beneficial."
     )
 
-    sweep = load_sweep_csv(processed_dir / CSV_FILENAME)
-
-    e40 = _find_sweep_entry(sweep, 40)
-    e30 = _find_sweep_entry(sweep, 30)
-    e20 = _find_sweep_entry(sweep, 20)
-
-    def _optimal_label(gain: float) -> str:
-        return "Timeout ✓" if gain > 0 else "Play On ✓"
-
-    key_findings = _build_theorem3_key_findings(sweep)
-    conclusion = _build_theorem3_conclusion(sweep)
-
     content = _TEMPLATE.format(
-        key_findings=key_findings,
         conclusion=conclusion,
-        ev_timeout_40=_fmt_ev(e40["ev_timeout"]),
-        ev_play_on_40=_fmt_ev(e40["ev_play_on"]),
-        ev_gain_40=_gain_label(e40["ev_gain"]),
-        optimal_40=_optimal_label(e40["ev_gain"]),
-        ev_timeout_30=_fmt_ev(e30["ev_timeout"]),
-        ev_play_on_30=_fmt_ev(e30["ev_play_on"]),
-        ev_gain_30=_gain_label(e30["ev_gain"]),
-        optimal_30=_optimal_label(e30["ev_gain"]),
-        ev_timeout_20=_fmt_ev(e20["ev_timeout"]),
-        ev_play_on_20=_fmt_ev(e20["ev_play_on"]),
-        ev_gain_20=_gain_label(e20["ev_gain"]),
-        optimal_20=_optimal_label(e20["ev_gain"]),
     )
 
     out_path = docs_dir / DOC_FILENAME

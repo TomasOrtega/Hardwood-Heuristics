@@ -12,11 +12,30 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Dict, List
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
 # Total seconds in the final period tracked by the historical log.
 _PERIOD_SECONDS = 180
+
+PALETTE = "RdYlGn"
+FIGURE_DPI = 150
+FONT_FAMILY = "DejaVu Sans"
+
+
+def apply_plot_aesthetics() -> None:
+    """Apply standard matplotlib formatting for project visualizations."""
+    plt.rcParams.update(
+        {
+            "font.family": FONT_FAMILY,
+            "axes.titlesize": 14,
+            "axes.labelsize": 12,
+            "xtick.labelsize": 10,
+            "ytick.labelsize": 10,
+            "figure.titlesize": 16,
+        }
+    )
 
 
 def write_sweep_csv(path: Path, rows: List[Dict], fieldnames: List[str]) -> None:
@@ -55,8 +74,7 @@ def load_sweep_csv(csv_path: Path) -> List[Dict]:
     """
     if not csv_path.exists():
         raise FileNotFoundError(
-            f"Data not found at {csv_path}. "
-            "Run `python -m src.collect_data` first."
+            f"Data not found at {csv_path}. " "Run `python -m src.collect_data` first."
         )
 
     df = pd.read_csv(csv_path)
@@ -69,18 +87,11 @@ def load_sweep_csv(csv_path: Path) -> List[Dict]:
 
     rows: List[Dict] = []
     for record in df.to_dict(orient="records"):
-        rows.append(
-            {
-                k: _to_python(v)
-                for k, v in record.items()
-            }
-        )
+        rows.append({k: _to_python(v) for k, v in record.items()})
     return rows
 
 
-def get_resolved_possessions_at_time(
-    df: pd.DataFrame, target_sec: int
-) -> pd.DataFrame:
+def get_resolved_possessions_at_time(df: pd.DataFrame, target_sec: int) -> pd.DataFrame:
     """Return one resolved possession row per game at *target_sec*.
 
     Uses ``pd.merge_asof`` (temporal join) to avoid the survivorship bias
