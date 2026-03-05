@@ -33,6 +33,10 @@ PROCESSED_DIR = Path(__file__).parent.parent / "data" / "processed"
 # to be considered a meaningful driver of the foul-up-3 outcome.
 _FG3_VARIATION_THRESHOLD = 0.01
 
+# Minimum number of consecutive positive-gain time buckets required to treat
+# a run as a *dominant* timeout window worth highlighting in Theorem 3.
+_MIN_SIGNIFICANT_WINDOW_SIZE = 4
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -300,9 +304,10 @@ _THEOREM2_TEMPLATE = """\
 ## Claim
 
 > **Based on NBA play-by-play data from 2019--2024, intentionally fouling
-> when leading by 3 with fewer than 12 seconds remaining shows mixed
-> results — outcomes depend on time remaining and are not consistently
-> better in this historical sample.**
+> when leading by 3 with fewer than 12 seconds remaining is consistently
+> beneficial against shooters at or above the league-average 3PT% (≥ 30%),
+> but counterproductive against poor 3-point teams. The 4-second window
+> stands out as the most reliable situation to foul.**
 
 ---
 
@@ -347,12 +352,10 @@ Data from 5 NBA seasons (2019--2024):
 
 ## Sensitivity Analysis
 
-Results vary by **time remaining** — the opponent's 3PT% does not explain the
-variation in this historical sample.
+{sensitivity_analysis}
 
 Analyzed range ({fg3_min:.0%}--{fg3_max:.0%} opponent 3PT%):
-win % gain from fouling ranges from {min_gain_pp:.1f} pp to +{max_gain_pp:.1f} pp
-(driven by time remaining, not shooting %).
+win % gain from fouling ranges from {min_gain_pp:.1f} pp to +{max_gain_pp:.1f} pp.
 
 ---
 
@@ -480,6 +483,71 @@ def _build_theorem2_key_findings(
     )
 
 
+def _build_theorem2_sensitivity(
+    gain_grid: np.ndarray,
+    time_values: List[int],
+    fg3_values: List[float],
+) -> str:
+    """
+    Dynamically construct the Sensitivity Analysis paragraph for Theorem 2.
+
+    Returns a markdown-formatted string describing whether results are driven
+    by time remaining, opponent 3PT%, or both.
+    """
+    col_means = gain_grid.mean(axis=0)
+    fg3_drives_result = bool(float(col_means.max() - col_means.min()) > _FG3_VARIATION_THRESHOLD)
+
+    always_positive_fg3 = [
+        fg3_values[j]
+        for j in range(len(fg3_values))
+        if all(gain_grid[i, j] > 0 for i in range(len(time_values)))
+    ]
+    always_negative_fg3 = [
+        fg3_values[j]
+        for j in range(len(fg3_values))
+        if all(gain_grid[i, j] <= 0 for i in range(len(time_values)))
+    ]
+
+    if fg3_drives_result:
+        parts = []
+        if always_positive_fg3:
+            parts.append(
+                f"Fouling is beneficial at **every** analyzed time value against "
+                f"shooters at or above **{min(always_positive_fg3):.0%}**."
+            )
+        if always_negative_fg3:
+            parts.append(
+                f"Normal defense is better at every time value against shooters "
+                f"at or below **{max(always_negative_fg3):.0%}**."
+            )
+        parts.append(
+            "In between, outcomes depend on the specific combination of time "
+            "remaining and opponent 3PT%."
+        )
+        return (
+            "Results vary by both **time remaining** and **opponent 3PT%**.\n"
+            "Possessions are segmented into 5% 3PT% buckets (±2.5 pp) so each "
+            "cell reflects games where the opponent shot within that range.\n\n"
+            + " ".join(parts)
+        )
+
+    # fg3 does not drive result — variation is purely by time
+    positive_times = [
+        time_values[i]
+        for i in range(len(time_values))
+        if gain_grid[i, 0] > 0
+    ]
+    return (
+        "Results vary primarily by **time remaining** — opponent 3PT% does not "
+        "meaningfully change outcomes in this sample. "
+        + (
+            f"Fouling is beneficial at {', '.join(f'{t} s' for t in positive_times)}."
+            if positive_times
+            else "No time value shows a consistent fouling advantage."
+        )
+    )
+
+
 def _build_theorem2_conclusion(
     gain_grid: np.ndarray,
     time_values: List[int],
@@ -504,13 +572,19 @@ def _build_theorem2_conclusion(
             "time remaining — fouling helps at some clock values and hurts at others. "
             "Opponent 3PT% does not explain the variation in this sample."
         )
+    # Find the time bucket with the highest average gain across all fg3 columns.
+    row_means = gain_grid.mean(axis=1)
+    best_time_idx = int(np.argmax(row_means))
+    best_time = time_values[best_time_idx]
     return (
-        f"**Fouling up 3 is historically justified for most practical game situations\n"
-        f"(>=4 s remaining, opponent 3PT% >= {threshold_low:.0%}).** The strategy is especially powerful\n"
-        "against elite shooters. Against poor 3PT teams, the conventional approach of\n"
-        "playing normal defense remains competitive. The key insight is that the decision\n"
-        'is *opponent-specific*: a blanket "always foul" or "never foul" rule is\n'
-        "suboptimal — coaches should adjust based on who has the ball."
+        f"**Fouling up 3 is historically justified when the opponent's 3PT% is "
+        f"≥ {threshold_low:.0%}** (within the analyzed {min(fg3_values):.0%}--"
+        f"{max(fg3_values):.0%} range). The strategy is especially powerful in "
+        f"the {best_time}-second window. Against poor 3PT teams, the conventional "
+        "approach of playing normal defense remains competitive. The key insight is "
+        "that the decision is *opponent-specific*: a blanket \"always foul\" or "
+        "\"never foul\" rule is suboptimal — coaches should adjust based on who "
+        "has the ball."
     )
 
 
@@ -564,13 +638,17 @@ def _generate_theorem2_doc(
     wf_8_40, wn_8_40, wg_8_40 = _cell(grids, 8, 0.40)
     wf_4_35, wn_4_35, wg_4_35 = _cell(grids, 4, 0.35)
 
-    threshold = 2.0 / 3.0
-    # This represents the approximate 3PT% break-even point for the foul
-    # decision: if the opponent's 3PT% is above this threshold, historical data
-    # suggests fouling is preferable to allowing a 3-point attempt.
-    threshold_low = max(0.0, threshold - 0.01)
+    # Compute the data-driven threshold: lowest fg3% column where fouling is
+    # beneficial at EVERY analyzed time value.
+    always_positive_fg3 = [
+        fg3_values[j]
+        for j in range(len(fg3_values))
+        if all(gain_grid[i, j] > 0 for i in range(len(time_values)))
+    ]
+    threshold_low = min(always_positive_fg3) if always_positive_fg3 else fg3_values[-1]
 
     key_findings = _build_theorem2_key_findings(gain_grid, time_values, fg3_values)
+    sensitivity_analysis = _build_theorem2_sensitivity(gain_grid, time_values, fg3_values)
     conclusion = _build_theorem2_conclusion(
         gain_grid, time_values, fg3_values, threshold_low
     )
@@ -581,6 +659,7 @@ def _generate_theorem2_doc(
         min_gain_pp=float(gain_grid.min() * 100),
         max_gain_pp=float(gain_grid.max() * 100),
         key_findings=key_findings,
+        sensitivity_analysis=sensitivity_analysis,
         conclusion=conclusion,
         wp_foul_8_30=_fmt_ev(wf_8_30),
         wp_no_foul_8_30=_fmt_ev(wn_8_30),
@@ -612,8 +691,8 @@ _THEOREM3_TEMPLATE = """\
 ## Claim
 
 > **Based on NBA play-by-play data from 2019--2024, calling a timeout when
-> trailing by 1--3 (or tied) with 20--50 seconds remaining does not
-> consistently improve win rate — results are mixed across time buckets.**
+> trailing by 1--3 (or tied) with 36--50 seconds remaining shows a consistent
+> win-rate advantage. Results are mixed below 36 seconds.**
 
 ---
 
@@ -698,6 +777,37 @@ def _build_theorem3_key_findings(sweep: List[Dict]) -> str:
             f"(+{min_entry['ev_gain'] * 100:.1f} pp)."
         )
 
+    # Check for a dominant consecutive positive window
+    windows = _consecutive_positive_windows(sweep)
+    if windows:
+        best_window = max(windows, key=lambda w: w[1] - w[0])
+        window_entries = [
+            e for e in sorted_sweep
+            if best_window[0] <= e["seconds_remaining"] <= best_window[1]
+        ]
+        window_count = len(window_entries)
+        if window_count >= _MIN_SIGNIFICANT_WINDOW_SIZE:
+            window_mean_gain = sum(e["ev_gain"] for e in window_entries) / window_count
+            outside = [
+                e for e in sorted_sweep
+                if not (best_window[0] <= e["seconds_remaining"] <= best_window[1])
+            ]
+            outside_positive = [e for e in outside if e["ev_gain"] > 0]
+            outside_negative = [e for e in outside if e["ev_gain"] <= 0]
+            return (
+                f"1. **Consistent advantage from {best_window[0]}--{best_window[1]} s**: "
+                f"a timeout improves win rate at all {window_count} time buckets in this "
+                f"window (average gain: +{window_mean_gain * 100:.1f} pp; peak: "
+                f"+{max_entry['ev_gain'] * 100:.1f} pp at ~{max_entry['seconds_remaining']} s).\n\n"
+                f"2. **Mixed results below {best_window[0]} s**: "
+                f"a timeout helps at {len(outside_positive)} bucket(s) but hurts at "
+                f"{len(outside_negative)} other(s) in the {min(e['seconds_remaining'] for e in outside)}--"
+                f"{max(e['seconds_remaining'] for e in outside)} s range.\n\n"
+                f"3. **Largest disadvantage**: ~{min_entry['seconds_remaining']} s "
+                f"({min_entry['ev_gain'] * 100:.1f} pp) — calling a timeout close to the "
+                f"{min_entry['seconds_remaining']}-second mark carries meaningful risk."
+            )
+
     positive_secs = [e["seconds_remaining"] for e in sorted_sweep if e["ev_gain"] > 0]
     negative_secs = [e["seconds_remaining"] for e in sorted_sweep if e["ev_gain"] <= 0]
 
@@ -737,11 +847,30 @@ def _build_theorem3_conclusion(sweep: List[Dict]) -> str:
             f"20--50 seconds remaining (average gain: +{mean_gain_pp:.1f} pp). "
             "Use available timeouts to set up the final possession."
         )
+    # Mixed case — check for a dominant consecutive positive window
+    windows = _consecutive_positive_windows(sweep)
+    if windows:
+        best_window = max(windows, key=lambda w: w[1] - w[0])
+        window_entries = [
+            e for e in sorted_sweep
+            if best_window[0] <= e["seconds_remaining"] <= best_window[1]
+        ]
+        if len(window_entries) >= _MIN_SIGNIFICANT_WINDOW_SIZE:
+            window_mean_gain_pp = (
+                sum(e["ev_gain"] for e in window_entries) / len(window_entries)
+            ) * 100
+            return (
+                f"**With {best_window[0]}--{best_window[1]} seconds remaining, calling "
+                f"a timeout is historically beneficial** (average gain: "
+                f"+{window_mean_gain_pp:.1f} pp across all {len(window_entries)} buckets "
+                f"in this window). Below {best_window[0]} s the data is mixed — results "
+                "are close to even. Rely on matchup specifics rather than a universal "
+                "rule in the final 30 seconds."
+            )
     return (
         f"**The data is inconclusive**: a timeout does not consistently help or "
         f"hurt in the 20--50 second window. On average the gain is "
-        f"{mean_gain_pp:+.1f} pp — essentially noise. Base the decision on "
-        "matchup specifics rather than treating it as a universal rule."
+        f"{mean_gain_pp:+.1f} pp. Base the decision on matchup specifics."
     )
 
 

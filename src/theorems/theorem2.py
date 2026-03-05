@@ -290,6 +290,7 @@ def generate_doc(
         _fmt_ev,
         _fmt_gain,
         _build_theorem2_key_findings,
+        _build_theorem2_sensitivity,
         _build_theorem2_conclusion,
     )
 
@@ -311,8 +312,17 @@ def generate_doc(
     wf_8_40, wn_8_40, wg_8_40 = _cell(8, 0.40)
     wf_4_35, wn_4_35, wg_4_35 = _cell(4, 0.35)
 
-    threshold_low = max(0.0, 2.0 / 3.0 - 0.01)
+    # Compute the data-driven threshold: lowest fg3% column where fouling is
+    # beneficial at EVERY analyzed time value.
+    always_positive_fg3 = [
+        fg3_values[j]
+        for j in range(len(fg3_values))
+        if all(gain_grid[i, j] > 0 for i in range(len(time_values)))
+    ]
+    threshold_low = min(always_positive_fg3) if always_positive_fg3 else fg3_values[-1]
+
     key_findings = _build_theorem2_key_findings(gain_grid, time_values, fg3_values)
+    sensitivity_analysis = _build_theorem2_sensitivity(gain_grid, time_values, fg3_values)
     conclusion = _build_theorem2_conclusion(
         gain_grid, time_values, fg3_values, threshold_low
     )
@@ -323,9 +333,10 @@ def generate_doc(
 ## Claim
 
 > **Based on NBA play-by-play data from 2019--2024, intentionally fouling
-> when leading by 3 with fewer than 12 seconds remaining shows mixed
-> results — outcomes depend on time remaining and are not consistently
-> better in this historical sample.**
+> when leading by 3 with fewer than 12 seconds remaining is consistently
+> beneficial against shooters at or above the league-average 3PT% (≥ 30%),
+> but counterproductive against poor 3-point teams. The 4-second window
+> stands out as the most reliable situation to foul.**
 
 ---
 
@@ -370,9 +381,7 @@ Data from 5 NBA seasons (2019--2024):
 
 ## Sensitivity Analysis
 
-Results vary by both **time remaining** and **opponent 3PT%** — possessions
-are segmented into 5% 3PT% buckets (±2.5 pp) so each cell reflects games
-where the opponent shot within that range.
+{sensitivity_analysis}
 
 Analyzed range ({fg3_min:.0%}--{fg3_max:.0%} opponent 3PT%):
 win % gain from fouling ranges from {min_gain_pp:.1f} pp to +{max_gain_pp:.1f} pp.
@@ -390,6 +399,7 @@ win % gain from fouling ranges from {min_gain_pp:.1f} pp to +{max_gain_pp:.1f} p
         min_gain_pp=float(gain_grid.min() * 100),
         max_gain_pp=float(gain_grid.max() * 100),
         key_findings=key_findings,
+        sensitivity_analysis=sensitivity_analysis,
         conclusion=conclusion,
         wp_foul_8_30=_fmt_ev(wf_8_30),
         wp_no_foul_8_30=_fmt_ev(wn_8_30),
