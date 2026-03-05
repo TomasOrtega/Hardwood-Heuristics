@@ -68,7 +68,7 @@ def plot_foul_up_3_heatmap(
     Parameters
     ----------
     grid          : 2-D array of shape (len(time_values), len(fg3_pct_values))
-                    where each cell is WP_foul − WP_no_foul.
+                    where each cell is WP_foul - WP_no_foul.
     time_values   : seconds-remaining labels for the y-axis (rows).
     fg3_pct_values: opponent 3PT% labels for the x-axis (columns).
     out_path      : destination file path (default: docs/assets/images/…).
@@ -188,29 +188,8 @@ def plot_two_for_one_ev_curve(
     ax2.axhline(0, color="black", linewidth=1.0)
     ax2.set_xlabel("Seconds Remaining in Possession")
     ax2.set_ylabel("Historical Win % Gain from Rushing (pp)")
-    ax2.set_title("Win % Gain: Rush − Normal  (green = rushing is better)")
+    ax2.set_title("Win % Gain: Rush - Normal  (green = rushing is better)")
     ax2.grid(True, alpha=0.3, axis="y")
-
-    # Mark the crossover point
-    crossover_seconds: Optional[int] = None
-    for i in range(1, len(ev_gain)):
-        if ev_gain[i - 1] < 0 and ev_gain[i] >= 0:
-            crossover_seconds = seconds[i]
-            break
-        if ev_gain[i - 1] >= 0 and ev_gain[i] < 0:
-            crossover_seconds = seconds[i - 1]
-            break
-
-    if crossover_seconds is not None:
-        ax2.axvline(
-            crossover_seconds,
-            color="black",
-            linewidth=1.4,
-            linestyle=":",
-            alpha=0.7,
-            label=f"Crossover ≈ {crossover_seconds}s",
-        )
-        ax2.legend(loc="upper right")
 
     plt.tight_layout()
     fig.savefig(out_path, dpi=FIGURE_DPI, bbox_inches="tight")

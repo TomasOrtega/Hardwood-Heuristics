@@ -623,7 +623,7 @@ _THEOREM3_TEMPLATE = """\
 We filter the historical play-by-play log for situations where:
 
 - The home team has possession
-- The score differential is between −3 and 0 (trailing by up to 3, or tied)
+- The score differential is between -3 and 0 (trailing by up to 3, or tied)
 - Between 20 and 50 seconds remain
 
 We group possessions by:

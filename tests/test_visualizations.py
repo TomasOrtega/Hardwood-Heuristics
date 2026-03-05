@@ -127,27 +127,6 @@ class TestPlotTwoForOneEvCurve:
         result = plot_two_for_one_ev_curve(sweep_results=_make_sweep(6))
         assert result.exists()
 
-    def test_with_crossover(self, tmp_path):
-        """Ensure crossover annotation doesn't break the plot."""
-        sweep = _make_sweep(15)
-        # Force a sign flip in ev_gain
-        for i in range(8):
-            sweep[i]["ev_gain"] = -0.01 - i * 0.001
-        for i in range(8, 15):
-            sweep[i]["ev_gain"] = 0.01 + (i - 8) * 0.001
-        out = tmp_path / "crossover.svg"
-        result = plot_two_for_one_ev_curve(sweep_results=sweep, out_path=out)
-        assert result.exists()
-
-    def test_no_crossover(self, tmp_path):
-        """All-negative gain: no crossover annotation, should still render."""
-        sweep = _make_sweep(8)
-        for r in sweep:
-            r["ev_gain"] = -0.05
-        out = tmp_path / "no_cross.svg"
-        result = plot_two_for_one_ev_curve(sweep_results=sweep, out_path=out)
-        assert result.exists()
-
     def test_single_point(self, tmp_path):
         sweep = [
             {
@@ -215,40 +194,6 @@ class TestPlotTheorem3TimeoutCurve:
         result = t3_plot(processed_dir=tmp_path, images_dir=tmp_path)
         assert isinstance(result, Path)
         assert result.name == "timeout_ev_curve.svg"
-
-    def test_with_crossover(self, tmp_path):
-        """Ensure a sign flip in ev_gain doesn't break the plot."""
-        csv_path = _make_theorem3_csv(tmp_path, n=10)
-        # Rewrite with forced sign flip
-        rows = []
-        for i, sec in enumerate(range(20, 40, 2)):
-            gain = -0.02 if i < 5 else 0.02
-            rows.append(
-                {
-                    "seconds_remaining": sec,
-                    "ev_timeout": 0.50 + gain,
-                    "ev_play_on": 0.50,
-                    "ev_gain": gain,
-                    "timeout_is_optimal": gain > 0,
-                }
-            )
-        import csv as _csv
-
-        fieldnames = [
-            "seconds_remaining",
-            "ev_timeout",
-            "ev_play_on",
-            "ev_gain",
-            "timeout_is_optimal",
-        ]
-        with open(csv_path, "w", newline="") as fh:
-            writer = _csv.DictWriter(fh, fieldnames=fieldnames)
-            writer.writeheader()
-            writer.writerows(rows)
-        from src.theorems.theorem3 import plot as t3_plot
-
-        result = t3_plot(processed_dir=tmp_path, images_dir=tmp_path)
-        assert result.exists()
 
     def test_via_visualizations_registry(self, tmp_path):
         """Theorem 3 should be present in the _PLOTTERS registry."""

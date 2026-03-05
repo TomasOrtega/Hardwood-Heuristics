@@ -42,7 +42,7 @@ Each theorem targets a specific late-game decision point.  We evaluate it by:
    (score margin, possession, time window, fouls-to-give) that defines the
    theorem's scenario.
 2. **Time-bucket** — for each target clock value *t*, include all possessions
-   within a ±1-second window (*t* − 1 to *t* + 1) to gather sufficient
+   within a ±1-second window (*t* - 1 to *t* + 1) to gather sufficient
    observations while keeping adjacent buckets approximately independent.
 3. **Split by action** — separate possessions into the two (or more) strategic
    choices being compared (e.g., *rush* vs. *hold*, *foul* vs. *no-foul*,

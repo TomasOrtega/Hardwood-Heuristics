@@ -10,7 +10,7 @@ full data-collection pipeline.
 
 Saved files
 -----------
-* ``theorem2_grid.csv``          -- Win-rate-gain grid (foul − no-foul).
+* ``theorem2_grid.csv``          -- Win-rate-gain grid (foul - no-foul).
 * ``theorem2_wp_foul_grid.csv``  -- Historical win rate when fouling.
 * ``theorem2_wp_no_foul_grid.csv`` -- Historical win rate without fouling.
 * ``theorem2_metadata.json``     -- Parameter labels (time_values, fg3_pct_values).

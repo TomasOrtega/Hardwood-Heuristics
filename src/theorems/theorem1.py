@@ -198,7 +198,7 @@ def plot(
     ax2.axhline(0, color="black", linewidth=1.0)
     ax2.set_xlabel("Seconds Remaining in Possession")
     ax2.set_ylabel("Historical Win % Gain from Rushing (pp)")
-    ax2.set_title("Win % Gain: Rush − Normal  (green = rushing is better)")
+    ax2.set_title("Win % Gain: Rush - Normal  (green = rushing is better)")
     ax2.grid(True, alpha=0.3, axis="y")
 
     plt.tight_layout()

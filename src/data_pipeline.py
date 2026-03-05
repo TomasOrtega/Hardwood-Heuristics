@@ -52,7 +52,7 @@ BACKOFF_BASE = 2.0  # exponential back-off multiplier
 class GameState:
     """Discrete state for a late-game possession."""
 
-    score_differential: int  # home − away, clipped to ±SCORE_DIFF_CLIP
+    score_differential: int  # home - away, clipped to ±SCORE_DIFF_CLIP
     seconds_remaining: int  # seconds left in the period [0, 180]
     possession: int  # 0 = away team, 1 = home team
     fouls_to_give: int  # [0, 2]

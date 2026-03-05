@@ -215,29 +215,8 @@ def plot(
     ax2.axhline(0, color="black", linewidth=1.0)
     ax2.set_xlabel("Seconds Remaining")
     ax2.set_ylabel("Historical Win % Gain from Timeout (pp)")
-    ax2.set_title("Win % Gain: Timeout − Play On  (green = timeout is better)")
+    ax2.set_title("Win % Gain: Timeout - Play On  (green = timeout is better)")
     ax2.grid(True, alpha=0.3, axis="y")
-
-    # Mark the crossover point (if any)
-    crossover_seconds: Optional[int] = None
-    for i in range(1, len(ev_gain)):
-        if ev_gain[i - 1] < 0 and ev_gain[i] >= 0:
-            crossover_seconds = seconds[i]
-            break
-        if ev_gain[i - 1] >= 0 and ev_gain[i] < 0:
-            crossover_seconds = seconds[i - 1]
-            break
-
-    if crossover_seconds is not None:
-        ax2.axvline(
-            crossover_seconds,
-            color="black",
-            linewidth=1.4,
-            linestyle=":",
-            alpha=0.7,
-            label=f"Crossover ≈ {crossover_seconds}s",
-        )
-        ax2.legend(loc="upper right")
 
     plt.tight_layout()
     fig.savefig(out_path, dpi=FIGURE_DPI, bbox_inches="tight")
@@ -266,7 +245,7 @@ _TEMPLATE = """\
 We filter the historical play-by-play log for situations where:
 
 - The home team has possession
-- The score differential is between −3 and 0 (trailing by up to 3, or tied)
+- The score differential is between -3 and 0 (trailing by up to 3, or tied)
 - Between 20 and 50 seconds remain
 
 We group possessions by:
