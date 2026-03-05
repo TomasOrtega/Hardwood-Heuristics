@@ -43,11 +43,6 @@ PROCESSED_DIR = Path(__file__).parent.parent / "data" / "processed"
 # Default win rate used when a bucket has no historical observations
 _DEFAULT_WIN_RATE = 0.5
 
-# Window size (in seconds) around each target time bucket when querying the
-# historical log.  A ±1 s window is used to capture sufficient observations
-# while keeping adjacent buckets roughly independent.
-_TIME_WINDOW_S = 1
-
 
 def _load_historical_log(processed_dir: Path) -> pd.DataFrame:
     """

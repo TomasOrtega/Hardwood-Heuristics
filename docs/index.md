@@ -41,9 +41,13 @@ Each theorem targets a specific late-game decision point.  We evaluate it by:
 1. **Filter** — restrict `transitions.parquet` to the exact game situation
    (score margin, possession, time window, fouls-to-give) that defines the
    theorem's scenario.
-2. **Time-bucket** — for each target clock value *t*, include all possessions
-   within a ±1-second window (*t* - 1 to *t* + 1) to gather sufficient
-   observations while keeping adjacent buckets approximately independent.
+2. **Temporal join** — for each target clock value *t*, apply a backward-forward
+   temporal join (`merge_asof`) on each game independently:
+   - *Look backward*: record the most recent game state (score, possession,
+     opponent 3PT%) at or just before *t*.
+   - *Look forward*: record the first action taken at or after *t*.
+   This avoids the survivorship bias of a simple window filter, which silently
+   drops possessions where the clock ran without any logged play-by-play event.
 3. **Split by action** — separate possessions into the two (or more) strategic
    choices being compared (e.g., *rush* vs. *hold*, *foul* vs. *no-foul*,
    *timeout* vs. *no timeout*).

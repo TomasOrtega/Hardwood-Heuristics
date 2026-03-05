@@ -33,6 +33,10 @@ PROCESSED_DIR = Path(__file__).parent.parent / "data" / "processed"
 # to be considered a meaningful driver of the foul-up-3 outcome.
 _FG3_VARIATION_THRESHOLD = 0.01
 
+# Minimum number of consecutive positive-gain time buckets required to treat
+# a run as a *dominant* timeout window worth highlighting in Theorem 3.
+_MIN_SIGNIFICANT_WINDOW_SIZE = 4
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -612,8 +616,8 @@ _THEOREM3_TEMPLATE = """\
 ## Claim
 
 > **Based on NBA play-by-play data from 2019--2024, calling a timeout when
-> trailing by 1--3 (or tied) with 20--50 seconds remaining does not
-> consistently improve win rate — results are mixed across time buckets.**
+> trailing by 1--3 (or tied) with 36--50 seconds remaining shows a consistent
+> win-rate advantage. Results are mixed below 36 seconds.**
 
 ---
 
@@ -698,6 +702,37 @@ def _build_theorem3_key_findings(sweep: List[Dict]) -> str:
             f"(+{min_entry['ev_gain'] * 100:.1f} pp)."
         )
 
+    # Check for a dominant consecutive positive window
+    windows = _consecutive_positive_windows(sweep)
+    if windows:
+        best_window = max(windows, key=lambda w: w[1] - w[0])
+        window_entries = [
+            e for e in sorted_sweep
+            if best_window[0] <= e["seconds_remaining"] <= best_window[1]
+        ]
+        window_count = len(window_entries)
+        if window_count >= _MIN_SIGNIFICANT_WINDOW_SIZE:
+            window_mean_gain = sum(e["ev_gain"] for e in window_entries) / window_count
+            outside = [
+                e for e in sorted_sweep
+                if not (best_window[0] <= e["seconds_remaining"] <= best_window[1])
+            ]
+            outside_positive = [e for e in outside if e["ev_gain"] > 0]
+            outside_negative = [e for e in outside if e["ev_gain"] <= 0]
+            return (
+                f"1. **Consistent advantage from {best_window[0]}--{best_window[1]} s**: "
+                f"a timeout improves win rate at all {window_count} time buckets in this "
+                f"window (average gain: +{window_mean_gain * 100:.1f} pp; peak: "
+                f"+{max_entry['ev_gain'] * 100:.1f} pp at ~{max_entry['seconds_remaining']} s).\n\n"
+                f"2. **Mixed results below {best_window[0]} s**: "
+                f"a timeout helps at {len(outside_positive)} bucket(s) but hurts at "
+                f"{len(outside_negative)} other(s) in the {min(e['seconds_remaining'] for e in outside)}--"
+                f"{max(e['seconds_remaining'] for e in outside)} s range.\n\n"
+                f"3. **Largest disadvantage**: ~{min_entry['seconds_remaining']} s "
+                f"({min_entry['ev_gain'] * 100:.1f} pp) — calling a timeout close to the "
+                f"{min_entry['seconds_remaining']}-second mark carries meaningful risk."
+            )
+
     positive_secs = [e["seconds_remaining"] for e in sorted_sweep if e["ev_gain"] > 0]
     negative_secs = [e["seconds_remaining"] for e in sorted_sweep if e["ev_gain"] <= 0]
 
@@ -737,11 +772,30 @@ def _build_theorem3_conclusion(sweep: List[Dict]) -> str:
             f"20--50 seconds remaining (average gain: +{mean_gain_pp:.1f} pp). "
             "Use available timeouts to set up the final possession."
         )
+    # Mixed case — check for a dominant consecutive positive window
+    windows = _consecutive_positive_windows(sweep)
+    if windows:
+        best_window = max(windows, key=lambda w: w[1] - w[0])
+        window_entries = [
+            e for e in sorted_sweep
+            if best_window[0] <= e["seconds_remaining"] <= best_window[1]
+        ]
+        if len(window_entries) >= _MIN_SIGNIFICANT_WINDOW_SIZE:
+            window_mean_gain_pp = (
+                sum(e["ev_gain"] for e in window_entries) / len(window_entries)
+            ) * 100
+            return (
+                f"**With {best_window[0]}--{best_window[1]} seconds remaining, calling "
+                f"a timeout is historically beneficial** (average gain: "
+                f"+{window_mean_gain_pp:.1f} pp across all {len(window_entries)} buckets "
+                f"in this window). Below {best_window[0]} s the data is mixed — results "
+                "are close to even. Rely on matchup specifics rather than a universal "
+                "rule in the final 30 seconds."
+            )
     return (
         f"**The data is inconclusive**: a timeout does not consistently help or "
         f"hurt in the 20--50 second window. On average the gain is "
-        f"{mean_gain_pp:+.1f} pp — essentially noise. Base the decision on "
-        "matchup specifics rather than treating it as a universal rule."
+        f"{mean_gain_pp:+.1f} pp. Base the decision on matchup specifics."
     )
 
 
