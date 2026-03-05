@@ -290,7 +290,7 @@ versus playing normal defense, based on NBA play-by-play data (2019--2024).
 
 ## Conclusion
 
-Foul the opponent when they are a competent 3PT shooting team (≥ 30%).
+Foul the opponent when they are a competent 3PT shooting team (≥ 40%).
 Against poor 3PT teams, normal defense remains the safer choice.
 
 """

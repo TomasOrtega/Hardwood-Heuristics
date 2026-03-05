@@ -66,31 +66,6 @@ def _find_sweep_entry(sweep: List[Dict], seconds: int) -> Dict:
     raise KeyError(f"No sweep entry for {seconds} seconds remaining")
 
 
-def _consecutive_positive_windows(
-    sweep: List[Dict],
-) -> List[tuple[int, int]]:
-    """
-    Return a list of (low_sec, high_sec) ranges where ev_gain > 0,
-    identifying consecutive blocks in the sorted sweep.
-    """
-    sorted_sweep = sorted(sweep, key=lambda e: e["seconds_remaining"])
-    windows: List[tuple[int, int]] = []
-    in_window = False
-    window_start = 0
-    for entry in sorted_sweep:
-        sec = entry["seconds_remaining"]
-        if entry["ev_gain"] > 0 and not in_window:
-            in_window = True
-            window_start = sec
-        elif entry["ev_gain"] <= 0 and in_window:
-            in_window = False
-            windows.append((window_start, prev_sec))  # type: ignore[possibly-undefined]
-        prev_sec = sec
-    if in_window:
-        windows.append((window_start, prev_sec))  # type: ignore[possibly-undefined]
-    return windows
-
-
 def _largest_window(sweep: List[Dict]) -> tuple[int, int]:
     """Return the largest consecutive window where ev_gain > 0."""
     windows = _consecutive_positive_windows(sweep)
@@ -109,6 +84,7 @@ def _generate_theorem1_doc(
     docs_dir: Path = DOCS_DIR,
 ) -> Path:
     from src.theorems.theorem1 import generate_doc
+
     return generate_doc(processed_dir=processed_dir, docs_dir=docs_dir)
 
 
@@ -137,6 +113,7 @@ def _generate_theorem3_doc(
     docs_dir: Path = DOCS_DIR,
 ) -> Path:
     from src.theorems.theorem3 import generate_doc
+
     return generate_doc(processed_dir=processed_dir, docs_dir=docs_dir)
 
 

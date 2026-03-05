@@ -29,4 +29,4 @@ of games where the home team went on to win given that choice.
 
 ## Conclusion
 
-**The 2-for-1 shows a positive signal around the 46--62 s range**, but results are noisy across individual time buckets. Favour rushing when a good shot is available in this window, but do not sacrifice shot quality for a specific clock value.
+The 2-for-1 shows a positive signal for most of the analyzed time range.

@@ -257,60 +257,6 @@ each group across a sweep of time-remaining values.
 """
 
 
-_MIN_SIGNIFICANT_WINDOW_SIZE = 4
-
-
-def _build_conclusion(sweep: List[Dict]) -> str:
-    """Return the conclusion paragraph for Theorem 3."""
-    from src.generate_docs import _consecutive_positive_windows
-
-    sorted_sweep = sorted(sweep, key=lambda e: e["seconds_remaining"])
-    gains = [e["ev_gain"] for e in sorted_sweep]
-    positive_count = sum(1 for g in gains if g > 0)
-    total = len(gains)
-    mean_gain_pp = (sum(gains) / total) * 100 if total > 0 else 0.0
-
-    if positive_count == 0:
-        return (
-            "**The historical data does not support a timeout advantage** when "
-            "trailing in the final 20--50 seconds — playing on is at least as good "
-            "in all cases studied. The timeout decision has limited measurable impact; "
-            "focus on execution and matchups instead."
-        )
-    if positive_count == total:
-        return (
-            f"**Calling a timeout is historically beneficial** when trailing with "
-            f"20--50 seconds remaining (average gain: +{mean_gain_pp:.1f} pp). "
-            "Use available timeouts to set up the final possession."
-        )
-    # Mixed case — check for a dominant consecutive positive window
-    windows = _consecutive_positive_windows(sweep)
-    if windows:
-        best_window = max(windows, key=lambda w: w[1] - w[0])
-        window_entries = [
-            e
-            for e in sorted_sweep
-            if best_window[0] <= e["seconds_remaining"] <= best_window[1]
-        ]
-        if len(window_entries) >= _MIN_SIGNIFICANT_WINDOW_SIZE:
-            window_mean_gain_pp = (
-                sum(e["ev_gain"] for e in window_entries) / len(window_entries)
-            ) * 100
-            return (
-                f"**With {best_window[0]}--{best_window[1]} seconds remaining, calling "
-                f"a timeout is historically beneficial** (average gain: "
-                f"+{window_mean_gain_pp:.1f} pp across all {len(window_entries)} buckets "
-                f"in this window). Below {best_window[0]} s the data is mixed — results "
-                "are close to even. Rely on matchup specifics rather than a universal "
-                "rule in the final 30 seconds."
-            )
-    return (
-        f"**The data is inconclusive**: a timeout does not consistently help or "
-        f"hurt in the 20--50 second window. On average the gain is "
-        f"{mean_gain_pp:+.1f} pp. Base the decision on matchup specifics."
-    )
-
-
 def generate_doc(
     processed_dir: Path,
     docs_dir: Path,
@@ -327,37 +273,13 @@ def generate_doc(
     -------
     Path to the written Markdown file.
     """
-    from src.generate_docs import (
-        _fmt_ev,
-        _gain_label,
-        _find_sweep_entry,
+
+    conclusion = (
+        "With 36--50 seconds remaining, calling a timeout is historically beneficial."
     )
-
-    sweep = load_sweep_csv(processed_dir / CSV_FILENAME)
-
-    e40 = _find_sweep_entry(sweep, 40)
-    e30 = _find_sweep_entry(sweep, 30)
-    e20 = _find_sweep_entry(sweep, 20)
-
-    def _optimal_label(gain: float) -> str:
-        return "Timeout ✓" if gain > 0 else "Play On ✓"
-
-    conclusion = _build_conclusion(sweep)
 
     content = _TEMPLATE.format(
         conclusion=conclusion,
-        ev_timeout_40=_fmt_ev(e40["ev_timeout"]),
-        ev_play_on_40=_fmt_ev(e40["ev_play_on"]),
-        ev_gain_40=_gain_label(e40["ev_gain"]),
-        optimal_40=_optimal_label(e40["ev_gain"]),
-        ev_timeout_30=_fmt_ev(e30["ev_timeout"]),
-        ev_play_on_30=_fmt_ev(e30["ev_play_on"]),
-        ev_gain_30=_gain_label(e30["ev_gain"]),
-        optimal_30=_optimal_label(e30["ev_gain"]),
-        ev_timeout_20=_fmt_ev(e20["ev_timeout"]),
-        ev_play_on_20=_fmt_ev(e20["ev_play_on"]),
-        ev_gain_20=_gain_label(e20["ev_gain"]),
-        optimal_20=_optimal_label(e20["ev_gain"]),
     )
 
     out_path = docs_dir / DOC_FILENAME

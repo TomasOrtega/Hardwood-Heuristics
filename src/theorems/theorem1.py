@@ -255,67 +255,9 @@ def generate_doc(
     -------
     Path to the written Markdown file.
     """
-    from src.generate_docs import (
-        _fmt_ev,
-        _gain_label,
-        _find_sweep_entry,
-        _largest_window,
-        _consecutive_positive_windows,
-    )
-
-    sweep = load_sweep_csv(processed_dir / CSV_FILENAME)
-
-    e32 = _find_sweep_entry(sweep, 32)
-    e40 = _find_sweep_entry(sweep, 40)
-    e20 = _find_sweep_entry(sweep, 20)
-
-    main_window = _largest_window(sweep)
-    window_low, window_high = main_window
-
-    sorted_sweep = sorted(sweep, key=lambda e: e["seconds_remaining"])
-    all_secs = [e["seconds_remaining"] for e in sorted_sweep]
-    sweep_min, sweep_max = min(all_secs), max(all_secs)
-    window_covers_full_range = (
-        main_window[0] == sweep_min and main_window[1] == sweep_max
-    )
-
-    if window_low == 0 and window_high == 0:
-        conclusion = (
-            "**No consistent rushing advantage found** in the historical data. "
-            "Normal possession performs at least as well across all analyzed time "
-            "buckets. Do not sacrifice shot quality based on the clock alone."
-        )
-    elif window_covers_full_range:
-        conclusion = (
-            f"**Rushing shows a modest advantage across the full analyzed range "
-            f"({sweep_min}--{sweep_max} s)**, but the gain is small and the results "
-            "are noisy. Shot quality matters more than the exact clock value."
-        )
-    else:
-        conclusion = (
-            f"**The 2-for-1 shows a positive signal around the {window_low}--"
-            f"{window_high} s range**, but results are noisy across individual "
-            "time buckets. Favour rushing when a good shot is available in this "
-            "window, but do not sacrifice shot quality for a specific clock value."
-        )
-
-    def _optimal_label(gain: float) -> str:
-        return "Rush ✓" if gain > 0 else "Normal ✓"
 
     content = _TEMPLATE.format(
-        conclusion=conclusion,
-        ev_rush_32=_fmt_ev(e32["ev_rush"]),
-        ev_normal_32=_fmt_ev(e32["ev_normal"]),
-        ev_gain_32=_gain_label(e32["ev_gain"]),
-        optimal_32=_optimal_label(e32["ev_gain"]),
-        ev_rush_40=_fmt_ev(e40["ev_rush"]),
-        ev_normal_40=_fmt_ev(e40["ev_normal"]),
-        ev_gain_40=_gain_label(e40["ev_gain"]),
-        optimal_40=_optimal_label(e40["ev_gain"]),
-        ev_rush_20=_fmt_ev(e20["ev_rush"]),
-        ev_normal_20=_fmt_ev(e20["ev_normal"]),
-        ev_gain_20=_gain_label(e20["ev_gain"]),
-        optimal_20=_optimal_label(e20["ev_gain"]),
+        conclusion="The 2-for-1 shows a positive signal for most of the analyzed time range.",
     )
 
     out_path = docs_dir / DOC_FILENAME

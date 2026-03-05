@@ -34,4 +34,4 @@ each group across a sweep of time-remaining values.
 
 ## Conclusion
 
-**With 36--50 seconds remaining, calling a timeout is historically beneficial** (average gain: +10.4 pp across all 8 buckets in this window). Below 36 s the data is mixed — results are close to even. Rely on matchup specifics rather than a universal rule in the final 30 seconds.
+With 36--50 seconds remaining, calling a timeout is historically beneficial.
