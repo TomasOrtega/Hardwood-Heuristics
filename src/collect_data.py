@@ -24,7 +24,6 @@ Saved artefacts (written to ``data/processed/``)
 * ``theorem2_grid.csv``            -- Win-rate-gain grid for Theorem 2 (Foul-Up-3).
 * ``theorem2_wp_foul_grid.csv``    -- Historical win rate when fouling (per cell).
 * ``theorem2_wp_no_foul_grid.csv`` -- Historical win rate without fouling (per cell).
-* ``theorem2_metadata.json``       -- Parameter labels (time_values, fg3_pct_values).
 * ``theorem3_sweep.csv``           -- Historical win-rate sweep for Theorem 3 (Late-Game Timeout).
 """
 
@@ -87,7 +86,7 @@ def _collect_theorem1(
 def _collect_theorem2(
     out_dir: Path,
     processed_dir: Optional[Path] = None,
-) -> tuple[Path, Path]:
+) -> Path:
     """
     Compute Theorem 2 (Foul-Up-3) historical win rates and save grids.
 
@@ -131,7 +130,7 @@ def collect_theorem1(out_dir: Path = PROCESSED_DIR) -> Path:
     return _collect_theorem1(out_dir)
 
 
-def collect_theorem2(out_dir: Path = PROCESSED_DIR) -> tuple[Path, Path]:
+def collect_theorem2(out_dir: Path = PROCESSED_DIR) -> Path:
     """Public wrapper kept for backwards compatibility."""
     return _collect_theorem2(out_dir)
 
