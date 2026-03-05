@@ -63,10 +63,13 @@ Each theorem targets a specific late-game decision point.  We evaluate it by:
 pip install -e ".[dev]"
 
 # Install dependencies (uv — faster)
-uv pip install -e ".[dev]"
+uv sync
 
 # Run tests
 pytest tests/ -v
+
+# Download play-by-play data (requires Kaggle API key, only needs to be done once)
+python -m src.scrape_nba_data
 
 # Aggregate historical win rates (requires transitions.parquet)
 python -m src.collect_data
