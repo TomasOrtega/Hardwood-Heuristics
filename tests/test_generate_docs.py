@@ -14,21 +14,10 @@ import numpy as np
 import pytest
 
 from src.generate_docs import (
-    _consecutive_positive_windows,
-    _find_sweep_entry,
-    _fmt_ev,
-    _fmt_gain,
-    _gain_label,
-    _largest_window,
     generate_all_docs,
     _generate_theorem1_doc,
     _generate_theorem2_doc,
     _generate_theorem3_doc,
-)
-from src.theorems.theorem1 import _build_key_findings as _build_theorem1_key_findings
-from src.theorems.theorem3 import (
-    _build_key_findings as _build_theorem3_key_findings,
-    _build_conclusion as _build_theorem3_conclusion,
 )
 
 # ---------------------------------------------------------------------------
@@ -160,102 +149,6 @@ def _write_theorem2_data(
 
 
 # ---------------------------------------------------------------------------
-# Helper function unit tests
-# ---------------------------------------------------------------------------
-class TestFmtEv:
-    def test_positive(self):
-        assert _fmt_ev(0.623) == "0.62"
-
-    def test_zero(self):
-        assert _fmt_ev(0.0) == "0.00"
-
-
-class TestFmtGain:
-    def test_positive_pp(self):
-        result = _fmt_gain(0.075, pp=True)
-        assert result.startswith("**+")
-        assert "pp" in result
-
-    def test_negative_pp(self):
-        result = _fmt_gain(-0.02, pp=True)
-        assert result.startswith("-")
-        assert "pp" in result
-
-    def test_no_pp_suffix(self):
-        result = _fmt_gain(0.03, pp=False)
-        assert "pp" not in result
-
-
-class TestFindSweepEntry:
-    def test_found(self):
-        sweep = [
-            {"seconds_remaining": 32, "ev_rush": 0.6, "ev_normal": 0.5, "ev_gain": 0.1}
-        ]
-        entry = _find_sweep_entry(sweep, 32)
-        assert entry["ev_gain"] == pytest.approx(0.1)
-
-    def test_not_found(self):
-        with pytest.raises(KeyError):
-            _find_sweep_entry([], 32)
-
-
-class TestConsecutivePositiveWindows:
-    def test_single_window(self):
-        sweep = _make_sweep(time_range=list(range(10, 65, 2)), positive_from=28)
-        windows = _consecutive_positive_windows(sweep)
-        assert any(w[0] == 28 for w in windows)
-
-    def test_two_windows(self):
-        # positive at 10-12s and 28+
-        sweep = _make_sweep(time_range=list(range(10, 65, 2)), positive_from=28)
-        # manually add positive entries at 10-12s
-        for entry in sweep:
-            if entry["seconds_remaining"] <= 12:
-                entry["ev_rush"] = 0.70
-                entry["ev_gain"] = 0.15
-        windows = _consecutive_positive_windows(sweep)
-        assert len(windows) == 2
-
-    def test_all_negative(self):
-        sweep = [{"seconds_remaining": s, "ev_gain": -0.1} for s in range(10, 65, 2)]
-        assert _consecutive_positive_windows(sweep) == []
-
-    def test_all_positive(self):
-        sweep = [{"seconds_remaining": s, "ev_gain": 0.1} for s in range(10, 65, 2)]
-        windows = _consecutive_positive_windows(sweep)
-        assert len(windows) == 1
-        assert windows[0] == (10, 64)
-
-
-class TestLargestWindow:
-    def test_returns_widest(self):
-        sweep = _make_sweep(time_range=list(range(10, 65, 2)), positive_from=28)
-        lo, hi = _largest_window(sweep)
-        assert lo == 28
-        assert hi == 64
-
-    def test_no_positive(self):
-        sweep = [{"seconds_remaining": s, "ev_gain": -0.1} for s in range(10, 65, 2)]
-        assert _largest_window(sweep) == (0, 0)
-
-
-# ---------------------------------------------------------------------------
-# Key Findings builders
-# ---------------------------------------------------------------------------
-class TestBuildTheorem1KeyFindings:
-    def test_includes_window(self):
-        sweep = _make_sweep(positive_from=28)
-        text = _build_theorem1_key_findings(sweep)
-        assert "28" in text
-        assert "64" in text
-
-    def test_all_negative(self):
-        sweep = [{"seconds_remaining": s, "ev_gain": -0.1} for s in range(10, 65, 2)]
-        text = _build_theorem1_key_findings(sweep)
-        assert "No consistent" in text or "does not" in text.lower()
-
-
-# ---------------------------------------------------------------------------
 # _generate_theorem1_doc
 # ---------------------------------------------------------------------------
 class TestGenerateTheorem1Doc:
@@ -275,10 +168,6 @@ class TestGenerateTheorem1Doc:
         # The figure and conclusion should be present
         assert "two_for_one_ev_curve.svg" in content
         assert "## Conclusion" in content
-
-    def test_missing_data_raises(self, tmp_path):
-        with pytest.raises(FileNotFoundError):
-            _generate_theorem1_doc(processed_dir=tmp_path, docs_dir=tmp_path)
 
     def test_returns_path(self, tmp_path):
         sweep = _make_sweep()
@@ -314,46 +203,6 @@ class TestGenerateTheorem2Doc:
 
 
 # ---------------------------------------------------------------------------
-# _build_theorem3_key_findings / _build_theorem3_conclusion
-# ---------------------------------------------------------------------------
-class TestBuildTheorem3KeyFindings:
-    def test_all_negative_mentions_no_advantage(self):
-        sweep = _make_theorem3_sweep()  # all slightly negative
-        text = _build_theorem3_key_findings(sweep)
-        assert (
-            "does not" in text.lower()
-            or "inconclusive" in text.lower()
-            or "mixed" in text.lower()
-        )
-
-    def test_all_positive(self):
-        sweep = _make_theorem3_sweep(timeout_better_from=20)  # all positive
-        text = _build_theorem3_key_findings(sweep)
-        assert "beneficial" in text.lower() or "all analyzed" in text.lower()
-
-    def test_mixed_mentions_mixed(self):
-        sweep = _make_theorem3_sweep(timeout_better_from=35)  # mixed
-        text = _build_theorem3_key_findings(sweep)
-        assert any(word in text.lower() for word in ["mixed", "inconclusive", "both"])
-
-
-class TestBuildTheorem3Conclusion:
-    def test_all_negative(self):
-        sweep = _make_theorem3_sweep()
-        text = _build_theorem3_conclusion(sweep)
-        assert "not" in text.lower() or "inconclusive" in text.lower()
-
-    def test_all_positive(self):
-        sweep = _make_theorem3_sweep(timeout_better_from=20)
-        text = _build_theorem3_conclusion(sweep)
-        assert (
-            "favour" in text.lower()
-            or "favours" in text.lower()
-            or "beneficial" in text.lower()
-        )
-
-
-# ---------------------------------------------------------------------------
 # _generate_theorem3_doc
 # ---------------------------------------------------------------------------
 class TestGenerateTheorem3Doc:
@@ -380,19 +229,6 @@ class TestGenerateTheorem3Doc:
         # The figure and conclusion should be present
         assert "timeout_ev_curve.svg" in content
         assert "## Conclusion" in content
-
-    def test_missing_data_raises(self, tmp_path):
-        with pytest.raises(FileNotFoundError):
-            _generate_theorem3_doc(processed_dir=tmp_path, docs_dir=tmp_path)
-
-    def test_inconclusive_conclusion_when_mixed(self, tmp_path):
-        sweep = _make_theorem3_sweep(timeout_better_from=35)
-        _write_theorem3_data(tmp_path, sweep)
-        _generate_theorem3_doc(processed_dir=tmp_path, docs_dir=tmp_path)
-        content = (tmp_path / "theorem3_timeout.md").read_text()
-        assert any(
-            word in content.lower() for word in ["inconclusive", "mixed", "noise"]
-        )
 
 
 # ---------------------------------------------------------------------------

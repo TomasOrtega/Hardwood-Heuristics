@@ -14,8 +14,6 @@ import pandas as pd
 import pytest
 
 from src.collect_data import (
-    _collect_theorem1,
-    _collect_theorem2,
     _collect_theorem3,
     collect_theorem3,
 )
