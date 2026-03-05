@@ -1,52 +1,46 @@
-# name: Build and Deploy Docs to GitHub Pages
+name: Build and Deploy Docs to GitHub Pages
 
-# on:
-#   push:
-#     branches:
-#       - main
-#   workflow_dispatch:
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
 
-# permissions:
-#   contents: write
+permissions:
+  contents: write
 
-# jobs:
-#   build-and-deploy:
-#     runs-on: ubuntu-latest
-#     env:
-#       NO_MKDOCS_2_WARNING: "1"
-#     steps:
-#       - name: Checkout repository
-#         uses: actions/checkout@v4
-#         with:
-#           fetch-depth: 0
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-#       - name: Install uv
-#         uses: astral-sh/setup-uv@v5
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
 
-#       - name: Set up Python
-#         uses: actions/setup-python@v5
-#         with:
-#           python-version: "3.11"
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
 
-#       - name: Install project package and dependencies
-#         run: uv sync --extra dev
+      - name: Install project package and dependencies
+        run: uv sync --extra dev
 
-#       - name: Collect and save data
-#         run: uv run python -m src.collect_data
-#         continue-on-error: true   # Don't fail deploy if data collection has issues
+      - name: Generate plots
+        run: |
+          uv run python -m src.visualizations
+        continue-on-error: true   # Don't fail deploy if plot generation has issues
 
-#       - name: Generate plots
-#         run: |
-#           uv run python -m src.visualizations
-#         continue-on-error: true   # Don't fail deploy if plot generation has issues
+      - name: Build site
+        run: uv run zensical build
 
-#       - name: Build site
-#         run: uv run zensical build
-
-#       - name: Deploy to GitHub Pages
-#         uses: peaceiris/actions-gh-pages@v4
-#         with:
-#           github_token: ${{ secrets.GITHUB_TOKEN }}
-#           publish_dir: ./site
-#           publish_branch: gh-pages
-#           commit_message: "Deploy docs: ${{ github.sha }}"
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./site
+          publish_branch: gh-pages
+          commit_message: "Deploy docs: ${{ github.sha }}"
