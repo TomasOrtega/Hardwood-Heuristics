@@ -124,16 +124,6 @@ _COLLECTORS: Dict[str, Callable[..., Any]] = {
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
-def collect_theorem1(out_dir: Path = PROCESSED_DIR) -> Path:
-    """Public wrapper kept for backwards compatibility."""
-    return _collect_theorem1(out_dir)
-
-
-def collect_theorem2(out_dir: Path = PROCESSED_DIR) -> Path:
-    """Public wrapper kept for backwards compatibility."""
-    return _collect_theorem2(out_dir)
-
-
 def collect_theorem3(out_dir: Path = PROCESSED_DIR) -> Path:
     """Public wrapper for Theorem 3 (Late-Game Timeout)."""
     return _collect_theorem3(out_dir)

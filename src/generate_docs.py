@@ -21,57 +21,10 @@ import logging
 from pathlib import Path
 from typing import Dict, List, Optional
 
-import numpy as np
-
 logger = logging.getLogger(__name__)
 
 DOCS_DIR = Path(__file__).parent.parent / "docs"
 PROCESSED_DIR = Path(__file__).parent.parent / "data" / "processed"
-
-# Minimum number of consecutive positive-gain time buckets required to treat
-# a run as a *dominant* timeout window worth highlighting in Theorem 3.
-_MIN_SIGNIFICANT_WINDOW_SIZE = 4
-
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-
-def _fmt_ev(value: float) -> str:
-    """Format a win-percentage value to 2 decimal places."""
-    return f"{value:.2f}"
-
-
-def _fmt_gain(value: float, pp: bool = False) -> str:
-    """Format a gain value with sign and optional 'pp' suffix."""
-    suffix = " pp" if pp else ""
-    if value > 0:
-        return f"**+{value * 100:.1f}{suffix}**"
-    return f"{value * 100:.1f}{suffix}"
-
-
-def _gain_label(value: float) -> str:
-    """Format a raw win-probability gain (0--1 scale) with bold for positive values."""
-    if value > 0:
-        return f"**+{value:.2f}**"
-    return f"{value:.2f}"
-
-
-def _find_sweep_entry(sweep: List[Dict], seconds: int) -> Dict:
-    """Return the sweep dict entry for the given seconds value."""
-    for entry in sweep:
-        if entry["seconds_remaining"] == seconds:
-            return entry
-    raise KeyError(f"No sweep entry for {seconds} seconds remaining")
-
-
-def _largest_window(sweep: List[Dict]) -> tuple[int, int]:
-    """Return the largest consecutive window where ev_gain > 0."""
-    windows = _consecutive_positive_windows(sweep)
-    if not windows:
-        return (0, 0)
-    return max(windows, key=lambda w: w[1] - w[0])
 
 
 # ---------------------------------------------------------------------------

@@ -23,10 +23,8 @@ Output columns
 from __future__ import annotations
 
 import logging
-import time
-from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
 import numpy as np
 import pandas as pd
@@ -43,53 +41,11 @@ PROCESSED_DIR = DATA_DIR / "processed"
 FINAL_PERIOD_SECONDS = 180  # last 3 minutes of regulation / OT
 SCORE_DIFF_CLIP = 30  # clip extreme leads for analysis
 MAX_FOULS_TO_GIVE = 2
-MAX_RETRIES = 5
-BACKOFF_BASE = 2.0  # exponential back-off multiplier
-
-
-# ---------------------------------------------------------------------------
-# Data-classes (kept for backwards compatibility)
-# ---------------------------------------------------------------------------
-@dataclass
-class GameState:
-    """Discrete state for a late-game possession."""
-
-    score_differential: int  # home - away, clipped to ±SCORE_DIFF_CLIP
-    seconds_remaining: int  # seconds left in the period [0, 180]
-    possession: int  # 0 = away team, 1 = home team
-    fouls_to_give: int  # [0, 2]
-
-    def as_tuple(self) -> Tuple[int, int, int, int]:
-        return (
-            self.score_differential,
-            self.seconds_remaining,
-            self.possession,
-            self.fouls_to_give,
-        )
-
-    @staticmethod
-    def from_tuple(t: Tuple[int, int, int, int]) -> "GameState":
-        return GameState(*t)
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-def _retry_with_backoff(fn, *args, max_retries: int = MAX_RETRIES, **kwargs):
-    """Call *fn* with exponential back-off on exception."""
-    for attempt in range(max_retries):
-        try:
-            return fn(*args, **kwargs)
-        except Exception as exc:
-            if attempt == max_retries - 1:
-                raise
-            wait = BACKOFF_BASE**attempt + 0.1 * attempt
-            logger.warning(
-                "Attempt %d failed (%s). Retrying in %.1fs…", attempt + 1, exc, wait
-            )
-            time.sleep(wait)
-
-
 def _period_clock_to_seconds(clock_str: str) -> int:
     """Convert 'PT02M35.00S' or 'MM:SS' style strings to total seconds."""
     if not clock_str:
@@ -626,51 +582,3 @@ def build_synthetic_transitions(n_samples: int = 5000, seed: int = 42) -> pd.Dat
             "opponent_fg3_pct": opponent_fg3_pct,
         }
     )
-
-
-# ---------------------------------------------------------------------------
-# Empirical parameter extraction (kept for backwards compatibility)
-# ---------------------------------------------------------------------------
-def compute_shooting_stats(transitions_df: pd.DataFrame) -> Dict[str, float]:
-    """
-    Compute basic shooting statistics from a historical possession log.
-
-    Returns
-    -------
-    dict with keys:
-        ``shoot_rate`` -- fraction of events that are shot attempts
-        ``foul_rate``  -- fraction of events that are fouls
-    """
-    if transitions_df.empty:
-        return {}
-
-    stats: Dict[str, float] = {}
-    total = len(transitions_df)
-    if total > 0:
-        actions = transitions_df.get("action_taken", pd.Series(dtype=str))
-        stats["shoot_rate"] = float((actions == "shoot").sum() / total)
-        stats["foul_rate"] = float((actions == "foul").sum() / total)
-    return stats
-
-
-def load_empirical_params(processed_dir: Path = PROCESSED_DIR) -> Dict[str, float]:
-    """
-    Load ``transitions.parquet`` from *processed_dir* and return basic
-    shooting statistics.
-
-    Returns an empty dict if the file does not exist.
-    """
-    transitions_path = processed_dir / "transitions.parquet"
-    if not transitions_path.exists():
-        logger.debug("transitions.parquet not found; no empirical params available.")
-        return {}
-    try:
-        df = pd.read_parquet(transitions_path)
-        params = compute_shooting_stats(df)
-        logger.info("Loaded empirical params from %s: %s", transitions_path, params)
-        return params
-    except Exception as exc:
-        logger.warning(
-            "Could not load empirical params from %s: %s", transitions_path, exc
-        )
-        return {}

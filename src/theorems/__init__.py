@@ -11,7 +11,7 @@ Adding a new theorem
    modules.
 2. Import and register the new module in the orchestrators:
    ``collect_data._COLLECTORS``, ``generate_docs._DOC_GENERATORS``,
-   ``visualizations._PLOTTERS``.
+   ``generate_plots.generate_all_plots``.
 """
 
 from __future__ import annotations

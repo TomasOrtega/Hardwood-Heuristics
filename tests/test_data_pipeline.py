@@ -13,7 +13,6 @@ from unittest.mock import MagicMock, patch
 
 from src.data_pipeline import (
     _period_clock_to_seconds,
-    GameState,
     NBAPlayByPlayScraper,
     PlayByPlayParser,
     build_synthetic_transitions,
@@ -43,24 +42,6 @@ class TestPeriodClockToSeconds:
 
     def test_three_minutes(self):
         assert _period_clock_to_seconds("PT03M00.00S") == 180
-
-
-# ---------------------------------------------------------------------------
-# GameState
-# ---------------------------------------------------------------------------
-class TestGameState:
-    def test_as_tuple_round_trip(self):
-        gs = GameState(
-            score_differential=3, seconds_remaining=45, possession=1, fouls_to_give=2
-        )
-        assert GameState.from_tuple(gs.as_tuple()) == gs
-
-    def test_from_tuple(self):
-        gs = GameState.from_tuple((-2, 30, 0, 1))
-        assert gs.score_differential == -2
-        assert gs.seconds_remaining == 30
-        assert gs.possession == 0
-        assert gs.fouls_to_give == 1
 
 
 # ---------------------------------------------------------------------------
