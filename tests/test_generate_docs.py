@@ -143,7 +143,7 @@ def _write_theorem2_data(
     if time_values is None:
         time_values = [2, 4, 6, 8, 10]
     if fg3_values is None:
-        fg3_values = [0.28, 0.32, 0.36, 0.40, 0.44]
+        fg3_values = [0.25, 0.30, 0.35, 0.40, 0.45]
 
     n_t, n_f = len(time_values), len(fg3_values)
     # gain increases with fg3_pct; may be shifted by gain_offset
@@ -261,27 +261,27 @@ class TestBuildTheorem1KeyFindings:
 class TestBuildTheorem2KeyFindings:
     def test_all_positive(self):
         gain_grid = np.full((3, 3), 0.07)
-        text = _build_theorem2_key_findings(gain_grid, [2, 4, 6], [0.28, 0.36, 0.44])
+        text = _build_theorem2_key_findings(gain_grid, [2, 4, 6], [0.25, 0.35, 0.45])
         assert "all analyzed scenarios" in text
         assert "7.0 pp" in text or "7." in text
 
     def test_mixed(self):
         gain_grid = np.array([[-0.02, 0.05], [-0.01, 0.06]])
-        text = _build_theorem2_key_findings(gain_grid, [4, 8], [0.28, 0.44])
-        assert "44" in text or "normal defense" in text.lower()
+        text = _build_theorem2_key_findings(gain_grid, [4, 8], [0.30, 0.45])
+        assert "45" in text or "normal defense" in text.lower()
 
 
 class TestBuildTheorem2Conclusion:
     def test_all_positive(self):
         gain_grid = np.full((3, 3), 0.07)
         text = _build_theorem2_conclusion(
-            gain_grid, [2, 4, 6], [0.28, 0.36, 0.44], 0.34
+            gain_grid, [2, 4, 6], [0.25, 0.35, 0.45], 0.34
         )
         assert "all analyzed" in text
 
     def test_some_negative(self):
         gain_grid = np.array([[-0.02, 0.05], [-0.01, 0.06]])
-        text = _build_theorem2_conclusion(gain_grid, [4, 8], [0.28, 0.44], 0.34)
+        text = _build_theorem2_conclusion(gain_grid, [4, 8], [0.30, 0.45], 0.34)
         assert "34" in text
 
 

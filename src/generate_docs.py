@@ -337,10 +337,10 @@ Data from 5 NBA seasons (2019--2024):
 
 | Seconds | Opp 3PT% | Foul Win % | No-Foul Win % | Win % Gain |
 |---------|----------|-----------|---------------|------------|
-| 8 s | 28 % | {wp_foul_8_28} | {wp_no_foul_8_28} | {wp_gain_8_28} |
-| 8 s | 36 % | {wp_foul_8_36} | {wp_no_foul_8_36} | {wp_gain_8_36} |
-| 8 s | 44 % | {wp_foul_8_44} | {wp_no_foul_8_44} | {wp_gain_8_44} |
-| 4 s | 36 % | {wp_foul_4_36} | {wp_no_foul_4_36} | {wp_gain_4_36} |
+| 8 s | 30 % | {wp_foul_8_30} | {wp_no_foul_8_30} | {wp_gain_8_30} |
+| 8 s | 35 % | {wp_foul_8_35} | {wp_no_foul_8_35} | {wp_gain_8_35} |
+| 8 s | 40 % | {wp_foul_8_40} | {wp_no_foul_8_40} | {wp_gain_8_40} |
+| 4 s | 35 % | {wp_foul_4_35} | {wp_no_foul_4_35} | {wp_gain_4_35} |
 
 > *Values are historical win percentages from NBA play-by-play data, 2019--2024.*
 
@@ -560,10 +560,10 @@ def _generate_theorem2_doc(
 
     grids = (wp_foul_grid, wp_no_foul_grid, gain_grid)
 
-    wf_8_28, wn_8_28, wg_8_28 = _cell(grids, 8, 0.28)
-    wf_8_36, wn_8_36, wg_8_36 = _cell(grids, 8, 0.36)
-    wf_8_44, wn_8_44, wg_8_44 = _cell(grids, 8, 0.44)
-    wf_4_36, wn_4_36, wg_4_36 = _cell(grids, 4, 0.36)
+    wf_8_30, wn_8_30, wg_8_30 = _cell(grids, 8, 0.30)
+    wf_8_35, wn_8_35, wg_8_35 = _cell(grids, 8, 0.35)
+    wf_8_40, wn_8_40, wg_8_40 = _cell(grids, 8, 0.40)
+    wf_4_35, wn_4_35, wg_4_35 = _cell(grids, 4, 0.35)
 
     threshold = 2.0 / 3.0
     # This represents the approximate 3PT% break-even point for the foul
@@ -583,18 +583,18 @@ def _generate_theorem2_doc(
         max_gain_pp=float(gain_grid.max() * 100),
         key_findings=key_findings,
         conclusion=conclusion,
-        wp_foul_8_28=_fmt_ev(wf_8_28),
-        wp_no_foul_8_28=_fmt_ev(wn_8_28),
-        wp_gain_8_28=_fmt_gain(wg_8_28, pp=True),
-        wp_foul_8_36=_fmt_ev(wf_8_36),
-        wp_no_foul_8_36=_fmt_ev(wn_8_36),
-        wp_gain_8_36=_fmt_gain(wg_8_36, pp=True),
-        wp_foul_8_44=_fmt_ev(wf_8_44),
-        wp_no_foul_8_44=_fmt_ev(wn_8_44),
-        wp_gain_8_44=_fmt_gain(wg_8_44, pp=True),
-        wp_foul_4_36=_fmt_ev(wf_4_36),
-        wp_no_foul_4_36=_fmt_ev(wn_4_36),
-        wp_gain_4_36=_fmt_gain(wg_4_36, pp=True),
+        wp_foul_8_30=_fmt_ev(wf_8_30),
+        wp_no_foul_8_30=_fmt_ev(wn_8_30),
+        wp_gain_8_30=_fmt_gain(wg_8_30, pp=True),
+        wp_foul_8_35=_fmt_ev(wf_8_35),
+        wp_no_foul_8_35=_fmt_ev(wn_8_35),
+        wp_gain_8_35=_fmt_gain(wg_8_35, pp=True),
+        wp_foul_8_40=_fmt_ev(wf_8_40),
+        wp_no_foul_8_40=_fmt_ev(wn_8_40),
+        wp_gain_8_40=_fmt_gain(wg_8_40, pp=True),
+        wp_foul_4_35=_fmt_ev(wf_4_35),
+        wp_no_foul_4_35=_fmt_ev(wn_4_35),
+        wp_gain_4_35=_fmt_gain(wg_4_35, pp=True),
     )
 
     out_path = docs_dir / "theorem2_foul_up_3.md"

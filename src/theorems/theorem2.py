@@ -76,7 +76,7 @@ def collect(
     logger.info("Computing Theorem 2 (Foul-Up-3) historical win rates…")
 
     time_values = list(range(2, 12, 2))
-    fg3_values = [round(x, 2) for x in np.arange(0.28, 0.46, 0.02)]
+    fg3_values = [round(x, 2) for x in np.arange(0.25, 0.50, 0.05)]
 
     n_time = len(time_values)
     n_fg3 = len(fg3_values)
@@ -112,7 +112,7 @@ def collect(
                 wp_no_foul = _DEFAULT_WIN_RATE
             else:
                 fg3_bin = window[
-                    window["opponent_fg3_pct"].between(fg3 - 0.01, fg3 + 0.01, inclusive="both")
+                    window["opponent_fg3_pct"].between(fg3 - 0.025, fg3 + 0.025, inclusive="both")
                 ]
                 foul_outcomes = fg3_bin.loc[fg3_bin["action_taken"] == "foul", "game_outcome"]
                 no_foul_outcomes = fg3_bin.loc[
@@ -310,10 +310,10 @@ def generate_doc(
             float(gain_grid[i, j]),
         )
 
-    wf_8_28, wn_8_28, wg_8_28 = _cell(8, 0.28)
-    wf_8_36, wn_8_36, wg_8_36 = _cell(8, 0.36)
-    wf_8_44, wn_8_44, wg_8_44 = _cell(8, 0.44)
-    wf_4_36, wn_4_36, wg_4_36 = _cell(4, 0.36)
+    wf_8_30, wn_8_30, wg_8_30 = _cell(8, 0.30)
+    wf_8_35, wn_8_35, wg_8_35 = _cell(8, 0.35)
+    wf_8_40, wn_8_40, wg_8_40 = _cell(8, 0.40)
+    wf_4_35, wn_4_35, wg_4_35 = _cell(4, 0.35)
 
     threshold_low = max(0.0, 2.0 / 3.0 - 0.01)
     key_findings = _build_theorem2_key_findings(gain_grid, time_values, fg3_values)
@@ -363,10 +363,10 @@ Data from 5 NBA seasons (2019--2024):
 
 | Seconds | Opp 3PT% | Foul Win % | No-Foul Win % | Win % Gain |
 |---------|----------|-----------|---------------|------------|
-| 8 s | 28 % | {wp_foul_8_28} | {wp_no_foul_8_28} | {wp_gain_8_28} |
-| 8 s | 36 % | {wp_foul_8_36} | {wp_no_foul_8_36} | {wp_gain_8_36} |
-| 8 s | 44 % | {wp_foul_8_44} | {wp_no_foul_8_44} | {wp_gain_8_44} |
-| 4 s | 36 % | {wp_foul_4_36} | {wp_no_foul_4_36} | {wp_gain_4_36} |
+| 8 s | 30 % | {wp_foul_8_30} | {wp_no_foul_8_30} | {wp_gain_8_30} |
+| 8 s | 35 % | {wp_foul_8_35} | {wp_no_foul_8_35} | {wp_gain_8_35} |
+| 8 s | 40 % | {wp_foul_8_40} | {wp_no_foul_8_40} | {wp_gain_8_40} |
+| 4 s | 35 % | {wp_foul_4_35} | {wp_no_foul_4_35} | {wp_gain_4_35} |
 
 > *Values are historical win percentages from NBA play-by-play data, 2019--2024.*
 
@@ -375,7 +375,7 @@ Data from 5 NBA seasons (2019--2024):
 ## Sensitivity Analysis
 
 Results vary by both **time remaining** and **opponent 3PT%** — possessions
-are now segmented into narrow 3PT% bins (±1 pp) so each cell reflects games
+are segmented into 5% 3PT% buckets (±2.5 pp) so each cell reflects games
 where the opponent shot within that range.
 
 Analyzed range ({fg3_min:.0%}--{fg3_max:.0%} opponent 3PT%):
@@ -395,18 +395,18 @@ win % gain from fouling ranges from {min_gain_pp:.1f} pp to +{max_gain_pp:.1f} p
         max_gain_pp=float(gain_grid.max() * 100),
         key_findings=key_findings,
         conclusion=conclusion,
-        wp_foul_8_28=_fmt_ev(wf_8_28),
-        wp_no_foul_8_28=_fmt_ev(wn_8_28),
-        wp_gain_8_28=_fmt_gain(wg_8_28, pp=True),
-        wp_foul_8_36=_fmt_ev(wf_8_36),
-        wp_no_foul_8_36=_fmt_ev(wn_8_36),
-        wp_gain_8_36=_fmt_gain(wg_8_36, pp=True),
-        wp_foul_8_44=_fmt_ev(wf_8_44),
-        wp_no_foul_8_44=_fmt_ev(wn_8_44),
-        wp_gain_8_44=_fmt_gain(wg_8_44, pp=True),
-        wp_foul_4_36=_fmt_ev(wf_4_36),
-        wp_no_foul_4_36=_fmt_ev(wn_4_36),
-        wp_gain_4_36=_fmt_gain(wg_4_36, pp=True),
+        wp_foul_8_30=_fmt_ev(wf_8_30),
+        wp_no_foul_8_30=_fmt_ev(wn_8_30),
+        wp_gain_8_30=_fmt_gain(wg_8_30, pp=True),
+        wp_foul_8_35=_fmt_ev(wf_8_35),
+        wp_no_foul_8_35=_fmt_ev(wn_8_35),
+        wp_gain_8_35=_fmt_gain(wg_8_35, pp=True),
+        wp_foul_8_40=_fmt_ev(wf_8_40),
+        wp_no_foul_8_40=_fmt_ev(wn_8_40),
+        wp_gain_8_40=_fmt_gain(wg_8_40, pp=True),
+        wp_foul_4_35=_fmt_ev(wf_4_35),
+        wp_no_foul_4_35=_fmt_ev(wn_4_35),
+        wp_gain_4_35=_fmt_gain(wg_4_35, pp=True),
     )
 
     out_path = docs_dir / DOC_FILENAME
