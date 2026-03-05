@@ -2,10 +2,10 @@
 
 ## Claim
 
-> **Based on NBA play-by-play data from 2019--2024, teams that rush a shot
-> to secure two possessions before time expires sometimes win at a higher
-> historical rate — but there is no sharp, reliable clock threshold where
-> this advantage switches on.**
+> **Based on NBA play-by-play data from 2019--2024, rushing a shot in tied
+> games shows a positive win-rate signal around 18--22 seconds remaining.
+> The effect is noisy and no single threshold reliably separates when
+> rushing helps from when it hurts.**
 
 ---
 
@@ -28,13 +28,9 @@ of games where the home team went on to win given that choice.
 
 ### Key Findings
 
-1. **Rushing appears beneficial roughly in the ~18--22 s window** based on historical data, but the boundary is not sharp — adjacent time buckets often flip sign due to sample noise.
+1. **Rushing shows a positive signal around the ~18--22 s window**, but results are noisy — individual time buckets often flip sign.
 
-2. **Below ~16 s normal possession is preferred** — too little time remains for the opponent to mount a meaningful second possession, so the risk-return of rushing does not pay off historically.
-
-3. **Above ~24 s normal possession is preferable** — rushing this early hands the opponent two possessions, negating the advantage.
-
-4. **Sample sizes are small per bucket** — conclusions should be treated as directional signals rather than precise thresholds.
+2. **Sample sizes are small per bucket** — treat these as directional signals, not precise thresholds.
 
 ### Historical Data Summary
 
@@ -52,4 +48,4 @@ Data from 5 NBA seasons (2019--2024):
 
 ## Conclusion
 
-**The 2-for-1 shows a positive signal in roughly the 18--22 s range**, but there is no sharp, reliable threshold — individual second-by-second results are noisy. Rushing at 24+ seconds can reduce win probability. Use this as a directional guide: favour rushing when a good shot is available in this window, but do not sacrifice shot quality for a specific clock value.
+**The 2-for-1 shows a positive signal around the 18--22 s range**, but results are noisy across individual time buckets. Favour rushing when a good shot is available in this window, but do not sacrifice shot quality for a specific clock value.

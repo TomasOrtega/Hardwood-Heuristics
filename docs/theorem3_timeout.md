@@ -2,9 +2,9 @@
 
 ## Claim
 
-> **Based on NBA play-by-play data from 2019--2024, teams trailing by 1--3 points
-> (or tied) with possession and 20--50 seconds remaining do not consistently
-> gain a win-probability advantage by calling a timeout.**
+> **Based on NBA play-by-play data from 2019--2024, calling a timeout when
+> trailing by 1--3 (or tied) with 20--50 seconds remaining does not
+> consistently improve win rate — results are mixed across time buckets.**
 
 ---
 
@@ -32,11 +32,11 @@ each group across a sweep of time-remaining values.
 
 ### Key Findings
 
-1. **Results are mixed**: a timeout historically helps at 8 of 16 time buckets (24--50 s) but hurts at 8 others (20--48 s).
+1. **Results are mixed**: a timeout helps at 8 of 16 time buckets (24--50 s) but hurts at 8 others (20--48 s).
 
-2. **The largest timeout advantage** occurs around ~46 s (+12.4 pp). The largest disadvantage is near ~40 s (-15.0 pp).
+2. **Largest advantage**: ~46 s (+12.4 pp). Largest disadvantage: ~40 s (-15.0 pp).
 
-3. **Overall the data is inconclusive**: there is no clean time window where timeouts are uniformly better or worse. The decision likely depends more on matchup and opponent tendencies than on the clock.
+3. **No clean pattern**: the data does not identify a time window where calling a timeout is consistently better or worse.
 
 ### Historical Data Summary
 
@@ -54,4 +54,4 @@ Data from 5 NBA seasons (2019--2024):
 
 ## Conclusion
 
-**The historical data is inconclusive**: a timeout does not consistently help or hurt across the analyzed 20--50 second window. On average the gain is +0.6 pp — essentially noise. Coaches should base the timeout decision on matchup specifics and player fatigue rather than treating it as a universal rule.
+**The data is inconclusive**: a timeout does not consistently help or hurt in the 20--50 second window. On average the gain is +0.6 pp — essentially noise. Base the decision on matchup specifics rather than treating it as a universal rule.

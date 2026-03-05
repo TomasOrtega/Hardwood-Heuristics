@@ -291,9 +291,9 @@ _TEMPLATE = """\
 
 ## Claim
 
-> **Based on NBA play-by-play data from 2019--2024, teams trailing by 1--3 points
-> (or tied) with possession and 20--50 seconds remaining do not consistently
-> gain a win-probability advantage by calling a timeout.**
+> **Based on NBA play-by-play data from 2019--2024, calling a timeout when
+> trailing by 1--3 (or tied) with 20--50 seconds remaining does not
+> consistently improve win rate — results are mixed across time buckets.**
 
 ---
 

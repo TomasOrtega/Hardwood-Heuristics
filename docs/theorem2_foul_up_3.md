@@ -2,9 +2,10 @@
 
 ## Claim
 
-> **Based on NBA play-by-play data from 2019--2024, teams leading by 3 points
-> with fewer than 12 seconds remaining generally win more often when they
-> intentionally foul — especially against good three-point shooters.**
+> **Based on NBA play-by-play data from 2019--2024, intentionally fouling
+> when leading by 3 with fewer than 12 seconds remaining shows mixed
+> results — outcomes depend on time remaining and are not consistently
+> better in this historical sample.**
 
 ---
 
@@ -30,17 +31,11 @@ red = normal defence better) across time remaining and opponent 3PT%.
 
 ### Key Findings
 
-1. **Fouling is most beneficial with 4--8 seconds remaining and a high-percentage
-   3PT shooter (≥ 28%).** The heatmap shows the largest positive values in this
-   region.
+1. **Results vary by time remaining**: fouling is better at 2 s, 8 s but worse at 4 s, 6 s, 10 s.
 
-2. **Against average-to-below-average 3PT shooters (≤ 44%), normal defense is
-   competitive** because the probability of a made 3-pointer is low enough that
-   the risk of cutting the lead to 1 (via free throws) is not worth taking.
+2. **Opponent 3PT% does not change outcomes** in this sample — gains are identical across all analyzed shooting percentages (28%--44%).
 
-3. **With only 2 seconds left, the strategy matters less** — there is barely
-   enough time for either a clean 3PT attempt or a fast-foul scenario. Both
-   strategies converge to similar historical win percentages.
+3. **No consistent pattern**: neither always-foul nor never-foul is optimal at all time values.
 
 ### Historical Data Summary
 
@@ -59,19 +54,15 @@ Data from 5 NBA seasons (2019--2024):
 
 ## Sensitivity Analysis
 
-The key driver is the **opponent's 3PT%** — a higher shooting rate makes
-allowing a three-point attempt more costly.
+Results vary by **time remaining** — the opponent's 3PT% does not explain the
+variation in this historical sample.
 
 Analyzed range (28%--44% opponent 3PT%):
-win % gain from fouling ranges from -17.5 pp to +6.3 pp.
+win % gain from fouling ranges from -17.5 pp to +6.3 pp
+(driven by time remaining, not shooting %).
 
 ---
 
 ## Conclusion
 
-**Fouling up 3 is historically justified for most practical game situations
-(>=4 s remaining, opponent 3PT% >= 66%).** The strategy is especially powerful
-against elite shooters. Against poor 3PT teams, the conventional approach of
-playing normal defense remains competitive. The key insight is that the decision
-is *opponent-specific*: a blanket "always foul" or "never foul" rule is
-suboptimal — coaches should adjust based on who has the ball.
+**The historical data does not consistently support intentional fouling** when leading by 3 with fewer than 12 seconds left. Outcomes vary by time remaining — fouling helps at some clock values and hurts at others. Opponent 3PT% does not explain the variation in this sample.
