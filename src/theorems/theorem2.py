@@ -96,31 +96,38 @@ def collect(
 
     for i, sec in enumerate(time_values):
         if filtered.empty:
-            wp_foul = _DEFAULT_WIN_RATE
-            wp_no_foul = _DEFAULT_WIN_RATE
+            window = filtered
         else:
             window = filtered[
                 filtered["seconds_remaining"].between(
                     sec - _TIME_WINDOW_S, sec + _TIME_WINDOW_S
                 )
             ]
-            foul_outcomes = window.loc[window["action_taken"] == "foul", "game_outcome"]
-            no_foul_outcomes = window.loc[
-                window["action_taken"] != "foul", "game_outcome"
-            ]
 
-            wp_foul = (
-                float(foul_outcomes.mean())
-                if len(foul_outcomes) > 0
-                else _DEFAULT_WIN_RATE
-            )
-            wp_no_foul = (
-                float(no_foul_outcomes.mean())
-                if len(no_foul_outcomes) > 0
-                else _DEFAULT_WIN_RATE
-            )
+        for j, fg3 in enumerate(fg3_values):
+            if window.empty or "opponent_fg3_pct" not in window.columns:
+                wp_foul = _DEFAULT_WIN_RATE
+                wp_no_foul = _DEFAULT_WIN_RATE
+            else:
+                fg3_bin = window[
+                    window["opponent_fg3_pct"].between(fg3 - 0.01, fg3 + 0.01, inclusive="both")
+                ]
+                foul_outcomes = fg3_bin.loc[fg3_bin["action_taken"] == "foul", "game_outcome"]
+                no_foul_outcomes = fg3_bin.loc[
+                    fg3_bin["action_taken"] != "foul", "game_outcome"
+                ]
 
-        for j in range(n_fg3):
+                wp_foul = (
+                    float(foul_outcomes.mean())
+                    if len(foul_outcomes) > 0
+                    else _DEFAULT_WIN_RATE
+                )
+                wp_no_foul = (
+                    float(no_foul_outcomes.mean())
+                    if len(no_foul_outcomes) > 0
+                    else _DEFAULT_WIN_RATE
+                )
+
             wp_foul_grid[i, j] = round(wp_foul, 4)
             wp_no_foul_grid[i, j] = round(wp_no_foul, 4)
             grid[i, j] = round(wp_foul - wp_no_foul, 4)
@@ -365,12 +372,12 @@ Data from 5 NBA seasons (2019--2024):
 
 ## Sensitivity Analysis
 
-Results vary by **time remaining** — the opponent's 3PT% does not explain the
-variation in this historical sample.
+Results vary by both **time remaining** and **opponent 3PT%** — possessions
+are now segmented into narrow 3PT% bins (±1 pp) so each cell reflects games
+where the opponent shot within that range.
 
 Analyzed range ({fg3_min:.0%}--{fg3_max:.0%} opponent 3PT%):
-win % gain from fouling ranges from {min_gain_pp:.1f} pp to +{max_gain_pp:.1f} pp
-(driven by time remaining, not shooting %).
+win % gain from fouling ranges from {min_gain_pp:.1f} pp to +{max_gain_pp:.1f} pp.
 
 ---
 

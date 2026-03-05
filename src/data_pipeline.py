@@ -16,6 +16,8 @@ Output columns
     action_taken        : string  -- "shoot", "foul", "timeout", "turnover",
                                     "rebound", "free_throw", or "other"
     game_outcome        : int     -- 1 = home team won, 0 = away team won
+    opponent_fg3_pct    : float   -- away (visiting) team's 3PT FG% for that
+                                    game, derived from play-by-play events
 """
 
 from __future__ import annotations
@@ -361,7 +363,8 @@ class PlayByPlayParser:
         -------
         pd.DataFrame with columns:
             game_id, season, seconds_remaining, score_differential,
-            possession, fouls_to_give, action_taken, game_outcome
+            possession, fouls_to_give, action_taken, game_outcome,
+            opponent_fg3_pct
         """
         if raw_df.empty:
             return pd.DataFrame()
@@ -509,6 +512,27 @@ class PlayByPlayParser:
             return min(MAX_FOULS_TO_GIVE, 2)
         return 1
 
+    def _compute_opponent_fg3_pct(self, game_df: pd.DataFrame) -> float:
+        """
+        Compute the visiting (away) team's 3-point FG% for this game as a
+        proxy for ``opponent_fg3_pct``.
+
+        The heuristic scans VISITORDESCRIPTION for "3PT" to identify 3-point
+        shot attempts; EVENTMSGTYPE 1 = made, 2 = missed.  Returns the league-
+        average default (0.33) when no 3-point attempts are found.
+        """
+        visitor_desc = game_df["VISITORDESCRIPTION"].fillna("").str.upper()
+        is_shot_made = game_df["EVENTMSGTYPE"] == self._SHOT_MADE_TYPE
+        is_shot_missed = game_df["EVENTMSGTYPE"] == self._SHOT_MISSED_TYPE
+        is_3pt = visitor_desc.str.contains("3PT", na=False)
+
+        fg3_made = int((is_shot_made & is_3pt).sum())
+        fg3_attempted = int(((is_shot_made | is_shot_missed) & is_3pt).sum())
+
+        if fg3_attempted == 0:
+            return 0.33  # league-average default
+        return round(fg3_made / fg3_attempted, 4)
+
     def _process_game(
         self,
         game_id: str,
@@ -519,6 +543,7 @@ class PlayByPlayParser:
         rows: List[Dict] = []
         possession = 1  # start with home team (simplification)
         fouls_to_give = 1
+        opponent_fg3_pct = self._compute_opponent_fg3_pct(df)
 
         events = df.sort_values("seconds_remaining", ascending=False).reset_index(
             drop=True
@@ -541,6 +566,7 @@ class PlayByPlayParser:
                     "fouls_to_give": fouls_to_give,
                     "action_taken": action_taken,
                     "game_outcome": game_outcome,
+                    "opponent_fg3_pct": opponent_fg3_pct,
                 }
             )
             possession = next_possession
@@ -586,6 +612,7 @@ def build_synthetic_transitions(n_samples: int = 5000, seed: int = 42) -> pd.Dat
         size=n,
     )
     game_outcomes = np.where(score_diffs > 0, 1, 0)
+    opponent_fg3_pct = rng.uniform(0.25, 0.45, size=n).round(4)
 
     return pd.DataFrame(
         {
@@ -597,6 +624,7 @@ def build_synthetic_transitions(n_samples: int = 5000, seed: int = 42) -> pd.Dat
             "fouls_to_give": np.minimum(MAX_FOULS_TO_GIVE, fouls),
             "action_taken": actions,
             "game_outcome": game_outcomes,
+            "opponent_fg3_pct": opponent_fg3_pct,
         }
     )
 
