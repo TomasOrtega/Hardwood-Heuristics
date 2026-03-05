@@ -439,32 +439,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#how-we-measure-it" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        How We Measure It
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#results" class="md-nav__link">
     <span class="md-ellipsis">
       
         Results
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#sensitivity-analysis" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Sensitivity Analysis
       
     </span>
   </a>
@@ -556,32 +534,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#how-we-measure-it" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        How We Measure It
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#results" class="md-nav__link">
     <span class="md-ellipsis">
       
         Results
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#sensitivity-analysis" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Sensitivity Analysis
       
     </span>
   </a>
@@ -620,37 +576,21 @@
 <h1 id="theorem-2-foul-up-3">Theorem 2: Foul Up 3<a class="headerlink" href="#theorem-2-foul-up-3" title="Permanent link">&para;</a></h1>
 <h2 id="claim">Claim<a class="headerlink" href="#claim" title="Permanent link">&para;</a></h2>
 <blockquote>
-<p><strong>Based on NBA play-by-play data from 2019--2024, intentionally fouling
-when leading by 3 with fewer than 12 seconds remaining is consistently
-beneficial against shooters at or above the league-average 3PT% (≥ 30%),
-but counterproductive against poor 3-point teams. The 4-second window
-stands out as the most reliable situation to foul.</strong></p>
+<p><strong>When leading by 3 with fewer than 12 seconds left, intentionally fouling
+is better against average-to-good 3PT shooters and worse against
+poor shooters.</strong></p>
 </blockquote>
-<hr />
-<h2 id="how-we-measure-it">How We Measure It<a class="headerlink" href="#how-we-measure-it" title="Permanent link">&para;</a></h2>
-<p>We filter the historical play-by-play log for:</p>
-<ul>
-<li>Home team defending (away team has the ball)</li>
-<li>Home team leads by exactly 3 points</li>
-<li>Fewer than 12 seconds remain</li>
-</ul>
-<p>We group possessions by <strong>Foul</strong> (intentional) vs. <strong>No Foul</strong> (normal defence),
-and compute the home-team historical win percentage for each.</p>
 <hr />
 <h2 id="results">Results<a class="headerlink" href="#results" title="Permanent link">&para;</a></h2>
 <p><img alt="Foul Up 3 Heatmap" src="../assets/images/foul_up_3_heatmap.svg" /></p>
-<p>The heatmap shows the historical win % gain from fouling (green = fouling better,
-red = normal defence better) across time remaining and opponent 3PT%.</p>
-<hr />
-<h2 id="sensitivity-analysis">Sensitivity Analysis<a class="headerlink" href="#sensitivity-analysis" title="Permanent link">&para;</a></h2>
-<p>Results vary by both <strong>time remaining</strong> and <strong>opponent 3PT%</strong>.
-Possessions are segmented into 5% 3PT% buckets (±2.5 pp) so each cell reflects games where the opponent shot within that range.</p>
-<p>Fouling is beneficial at <strong>every</strong> analyzed time value against shooters at or above <strong>30%</strong>. Normal defense is better at every time value against shooters at or below <strong>25%</strong>. In between, outcomes depend on the specific combination of time remaining and opponent 3PT%.</p>
-<p>Analyzed range (25%--45% opponent 3PT%):
-win % gain from fouling ranges from -53.8 pp to +55.6 pp.</p>
+<p>Green cells show situations where fouling improved the historical win rate;
+red cells show where normal defense was better.
+Each cell value is the win-percentage gain (in percentage points) from fouling
+versus playing normal defense, based on NBA play-by-play data (2019--2024).</p>
 <hr />
 <h2 id="conclusion">Conclusion<a class="headerlink" href="#conclusion" title="Permanent link">&para;</a></h2>
-<p><strong>Fouling up 3 is historically justified when the opponent's 3PT% is ≥ 30%</strong> (within the analyzed 25%--45% range). The strategy is especially powerful in the 4-second window. Against poor 3PT teams, the conventional approach of playing normal defense remains competitive. The key insight is that the decision is <em>opponent-specific</em>: a blanket "always foul" or "never foul" rule is suboptimal — coaches should adjust based on who has the ball.</p>
+<p>Foul the opponent when they are a competent 3PT shooting team (≥ 40%).
+Against poor 3PT teams, normal defense remains the safer choice.</p>
 
 
 
