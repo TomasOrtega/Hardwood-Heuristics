@@ -692,9 +692,13 @@ we record:</p>
 <li><strong>Filter</strong> — restrict <code>transitions.parquet</code> to the exact game situation
    (score margin, possession, time window, fouls-to-give) that defines the
    theorem's scenario.</li>
-<li><strong>Time-bucket</strong> — for each target clock value <em>t</em>, include all possessions
-   within a ±1-second window (<em>t</em> - 1 to <em>t</em> + 1) to gather sufficient
-   observations while keeping adjacent buckets approximately independent.</li>
+<li><strong>Temporal join</strong> — for each target clock value <em>t</em>, apply a backward-forward
+   temporal join (<code>merge_asof</code>) on each game independently:</li>
+<li><em>Look backward</em>: record the most recent game state (score, possession,
+     opponent 3PT%) at or just before <em>t</em>.</li>
+<li><em>Look forward</em>: record the first action taken at or after <em>t</em>.
+   This avoids the survivorship bias of a simple window filter, which silently
+   drops possessions where the clock ran without any logged play-by-play event.</li>
 <li><strong>Split by action</strong> — separate possessions into the two (or more) strategic
    choices being compared (e.g., <em>rush</em> vs. <em>hold</em>, <em>foul</em> vs. <em>no-foul</em>,
    <em>timeout</em> vs. <em>no timeout</em>).</li>
