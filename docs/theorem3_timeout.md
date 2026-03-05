@@ -32,9 +32,9 @@ each group across a sweep of time-remaining values.
 
 ### Key Findings
 
-1. **Results are mixed**: a timeout helps at 9 of 16 time buckets (20--50 s) but hurts at 7 others (26--48 s).
+1. **Results are mixed**: a timeout helps at 12 of 16 time buckets (22--50 s) but hurts at 4 others (20--34 s).
 
-2. **Largest advantage**: ~30 s (+31.3 pp). Largest disadvantage: ~42 s (-28.1 pp).
+2. **Largest advantage**: ~40 s (+17.3 pp). Largest disadvantage: ~34 s (-8.2 pp).
 
 3. **No clean pattern**: the data does not identify a time window where calling a timeout is consistently better or worse.
 
@@ -44,9 +44,9 @@ Data from 5 NBA seasons (2019--2024):
 
 | Seconds | Timeout Win % | Play-On Win % | Win % Gain | Better Strategy |
 |---------|--------------|--------------|------------|----------------|
-| 40 s | 0.43 | 0.44 | -0.01 | Play On ✓ |
-| 30 s | 0.74 | 0.43 | **+0.31** | Timeout ✓ |
-| 20 s | 0.50 | 0.46 | **+0.04** | Timeout ✓ |
+| 40 s | 0.67 | 0.49 | **+0.17** | Timeout ✓ |
+| 30 s | 0.46 | 0.45 | **+0.02** | Timeout ✓ |
+| 20 s | 0.46 | 0.48 | -0.02 | Play On ✓ |
 
 > *Values are historical win percentages from NBA play-by-play data, 2019--2024.*
 
@@ -54,4 +54,4 @@ Data from 5 NBA seasons (2019--2024):
 
 ## Conclusion
 
-**The data is inconclusive**: a timeout does not consistently help or hurt in the 20--50 second window. On average the gain is +0.2 pp — essentially noise. Base the decision on matchup specifics rather than treating it as a universal rule.
+**The data is inconclusive**: a timeout does not consistently help or hurt in the 20--50 second window. On average the gain is +5.3 pp — essentially noise. Base the decision on matchup specifics rather than treating it as a universal rule.

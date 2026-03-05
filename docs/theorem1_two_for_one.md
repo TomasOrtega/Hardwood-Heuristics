@@ -27,7 +27,7 @@ of games where the home team went on to win given that choice.
 
 ### Key Findings
 
-1. **Rushing shows a positive signal around the ~36--44 s window**, but results are noisy — individual time buckets often flip sign.
+1. **Rushing shows a positive signal around the ~46--62 s window**, but results are noisy — individual time buckets often flip sign.
 
 2. **Sample sizes are small per bucket** — treat these as directional signals, not precise thresholds.
 
@@ -37,9 +37,9 @@ Data from 5 NBA seasons (2019--2024):
 
 | Scenario | Rush Win % | Hold Win % | Win % Gain | Better Strategy |
 |----------|-----------|-----------|------------|----------------|
-| 32 s, tied | 0.32 | 0.52 | -0.20 | Normal ✓ |
-| 40 s, tied | 0.71 | 0.55 | **+0.17** | Rush ✓ |
-| 20 s, tied | 0.53 | 0.48 | **+0.05** | Rush ✓ |
+| 32 s, tied | 0.50 | 0.41 | **+0.09** | Rush ✓ |
+| 40 s, tied | 0.54 | 0.57 | -0.02 | Normal ✓ |
+| 20 s, tied | 0.53 | 0.53 | 0.00 | Normal ✓ |
 
 > *Values are historical win percentages from NBA play-by-play data, 2019--2024.*
 
@@ -47,4 +47,4 @@ Data from 5 NBA seasons (2019--2024):
 
 ## Conclusion
 
-**The 2-for-1 shows a positive signal around the 36--44 s range**, but results are noisy across individual time buckets. Favour rushing when a good shot is available in this window, but do not sacrifice shot quality for a specific clock value.
+**The 2-for-1 shows a positive signal around the 46--62 s range**, but results are noisy across individual time buckets. Favour rushing when a good shot is available in this window, but do not sacrifice shot quality for a specific clock value.

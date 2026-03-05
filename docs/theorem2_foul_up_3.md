@@ -32,10 +32,10 @@ red = normal defence better) across time remaining and opponent 3PT%.
 ### Key Findings
 
 1. **Fouling is most beneficial with 4--8 seconds remaining and a high-percentage
-   3PT shooter (≥ 25%).** The heatmap shows the largest positive values in this
+   3PT shooter (≥ 30%).** The heatmap shows the largest positive values in this
    region.
 
-2. **Against average-to-below-average 3PT shooters (≤ 45%), normal defense is
+2. **Against average-to-below-average 3PT shooters (≤ 25%), normal defense is
    competitive** because the probability of a made 3-pointer is low enough that
    the risk of cutting the lead to 1 (via free throws) is not worth taking.
 
@@ -49,10 +49,10 @@ Data from 5 NBA seasons (2019--2024):
 
 | Seconds | Opp 3PT% | Foul Win % | No-Foul Win % | Win % Gain |
 |---------|----------|-----------|---------------|------------|
-| 8 s | 30 % | 0.50 | 0.35 | **+15.0 pp** |
-| 8 s | 35 % | 1.00 | 0.56 | **+44.4 pp** |
-| 8 s | 40 % | 1.00 | 0.31 | **+69.0 pp** |
-| 4 s | 35 % | 0.25 | 0.41 | -15.5 pp |
+| 8 s | 30 % | 0.50 | 0.46 | **+3.9 pp** |
+| 8 s | 35 % | 0.00 | 0.45 | -45.5 pp |
+| 8 s | 40 % | 0.50 | 0.25 | **+25.0 pp** |
+| 4 s | 35 % | 0.75 | 0.58 | **+16.7 pp** |
 
 > *Values are historical win percentages from NBA play-by-play data, 2019--2024.*
 
@@ -64,7 +64,7 @@ Results vary by **time remaining** — the opponent's 3PT% does not explain the
 variation in this historical sample.
 
 Analyzed range (25%--45% opponent 3PT%):
-win % gain from fouling ranges from -46.7 pp to +78.6 pp
+win % gain from fouling ranges from -53.8 pp to +55.6 pp
 (driven by time remaining, not shooting %).
 
 ---
