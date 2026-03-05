@@ -677,10 +677,10 @@ each group across a sweep of time-remaining values.</p>
 <h3 id="key-findings">Key Findings<a class="headerlink" href="#key-findings" title="Permanent link">&para;</a></h3>
 <ol>
 <li>
-<p><strong>Results are mixed</strong>: a timeout helps at 8 of 16 time buckets (24--50 s) but hurts at 8 others (20--48 s).</p>
+<p><strong>Results are mixed</strong>: a timeout helps at 9 of 16 time buckets (20--50 s) but hurts at 7 others (26--48 s).</p>
 </li>
 <li>
-<p><strong>Largest advantage</strong>: ~46 s (+12.4 pp). Largest disadvantage: ~40 s (-15.0 pp).</p>
+<p><strong>Largest advantage</strong>: ~30 s (+31.3 pp). Largest disadvantage: ~42 s (-28.1 pp).</p>
 </li>
 <li>
 <p><strong>No clean pattern</strong>: the data does not identify a time window where calling a timeout is consistently better or worse.</p>
@@ -701,24 +701,24 @@ each group across a sweep of time-remaining values.</p>
 <tbody>
 <tr>
 <td>40 s</td>
-<td>0.00</td>
-<td>0.15</td>
-<td>-0.15</td>
+<td>0.43</td>
+<td>0.44</td>
+<td>-0.01</td>
 <td>Play On ✓</td>
 </tr>
 <tr>
 <td>30 s</td>
-<td>0.14</td>
-<td>0.07</td>
-<td><strong>+0.08</strong></td>
+<td>0.74</td>
+<td>0.43</td>
+<td><strong>+0.31</strong></td>
 <td>Timeout ✓</td>
 </tr>
 <tr>
 <td>20 s</td>
-<td>0.09</td>
-<td>0.11</td>
-<td>-0.02</td>
-<td>Play On ✓</td>
+<td>0.50</td>
+<td>0.46</td>
+<td><strong>+0.04</strong></td>
+<td>Timeout ✓</td>
 </tr>
 </tbody>
 </table>
@@ -727,7 +727,7 @@ each group across a sweep of time-remaining values.</p>
 </blockquote>
 <hr />
 <h2 id="conclusion">Conclusion<a class="headerlink" href="#conclusion" title="Permanent link">&para;</a></h2>
-<p><strong>The data is inconclusive</strong>: a timeout does not consistently help or hurt in the 20--50 second window. On average the gain is +0.6 pp — essentially noise. Base the decision on matchup specifics rather than treating it as a universal rule.</p>
+<p><strong>The data is inconclusive</strong>: a timeout does not consistently help or hurt in the 20--50 second window. On average the gain is +0.2 pp — essentially noise. Base the decision on matchup specifics rather than treating it as a universal rule.</p>
 
 
 
