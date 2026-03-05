@@ -19,7 +19,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 
-from src.theorems.utils import load_sweep_csv, write_sweep_csv
+from src.theorems.utils import get_resolved_possessions_at_time, load_sweep_csv, write_sweep_csv
 
 matplotlib.use("Agg")
 
@@ -32,7 +32,6 @@ DOC_FILENAME = "theorem1_two_for_one.md"
 
 # Default win rate used when a bucket has no historical observations
 _DEFAULT_WIN_RATE = 0.5
-_TIME_WINDOW_S = 1
 
 # Consistent aesthetics
 FIGURE_DPI = 150
@@ -75,14 +74,8 @@ def collect(
 
     rows: List[Dict] = []
 
-    tied = (
-        df[(df["score_differential"] == 0) & (df["possession"] == 1)]
-        if not df.empty
-        else df
-    )
-
     for sec in range(10, 65, 2):
-        if tied.empty:
+        if df.empty:
             rows.append(
                 {
                     "seconds_remaining": sec,
@@ -94,10 +87,9 @@ def collect(
             )
             continue
 
-        window = tied[
-            tied["seconds_remaining"].between(
-                sec - _TIME_WINDOW_S, sec + _TIME_WINDOW_S
-            )
+        resolved = get_resolved_possessions_at_time(df, sec)
+        window = resolved[
+            (resolved["score_differential"] == 0) & (resolved["possession"] == 1)
         ]
         rush_outcomes = window.loc[window["action_taken"] == "shoot", "game_outcome"]
         hold_outcomes = window.loc[window["action_taken"] != "shoot", "game_outcome"]
