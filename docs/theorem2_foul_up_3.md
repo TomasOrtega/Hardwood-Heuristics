@@ -3,7 +3,7 @@
 ## Claim
 
 > **When leading by 3 with fewer than 12 seconds left, intentionally fouling
-> is better against average-to-good 3PT shooters (≥ 30%) and worse against
+> is better against average-to-good 3PT shooters and worse against
 > poor shooters.**
 
 ---

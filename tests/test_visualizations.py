@@ -13,7 +13,6 @@ import numpy as np
 import pytest
 from pathlib import Path
 
-
 # ---------------------------------------------------------------------------
 # Theorem 3: Late-Game Timeout EV curve (via CSV)
 # ---------------------------------------------------------------------------

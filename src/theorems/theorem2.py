@@ -272,7 +272,7 @@ def generate_doc(
 ## Claim
 
 > **When leading by 3 with fewer than 12 seconds left, intentionally fouling
-> is better against average-to-good 3PT shooters (≥ 30%) and worse against
+> is better against average-to-good 3PT shooters and worse against
 > poor shooters.**
 
 ---
@@ -299,4 +299,3 @@ Against poor 3PT teams, normal defense remains the safer choice.
     out_path.write_text(content, encoding="utf-8")
     logger.info("Written Theorem 2 doc to %s", out_path)
     return out_path
-

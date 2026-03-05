@@ -221,9 +221,8 @@ _TEMPLATE = """\
 
 ## Claim
 
-> **Based on NBA play-by-play data from 2019--2024, calling a timeout when
-> trailing by 1--3 (or tied) with 36--50 seconds remaining shows a consistent
-> win-rate advantage. Results are mixed below 36 seconds.**
+> **Calling a timeout when trailing by 1--3 (or tied) with less than 50 seconds is
+> beneficial.**
 
 ---
 
