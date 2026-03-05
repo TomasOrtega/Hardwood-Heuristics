@@ -239,15 +239,8 @@ def _generate_theorem1_doc(
     docs_dir: Path = DOCS_DIR,
 ) -> Path:
     """Load Theorem 1 sweep data and write the theorem1 Markdown file."""
-    sweep_path = processed_dir / "theorem1_sweep.json"
-    if not sweep_path.exists():
-        raise FileNotFoundError(
-            f"Theorem 1 sweep data not found at {sweep_path}. "
-            "Run `python -m src.collect_data` first."
-        )
-
-    with open(sweep_path) as f:
-        sweep: List[Dict] = json.load(f)
+    from src.theorems.theorem1 import load_sweep
+    sweep: List[Dict] = load_sweep(processed_dir)
 
     e32 = _find_sweep_entry(sweep, 32)
     e40 = _find_sweep_entry(sweep, 40)
@@ -756,15 +749,8 @@ def _generate_theorem3_doc(
     docs_dir: Path = DOCS_DIR,
 ) -> Path:
     """Load Theorem 3 sweep data and write the theorem3 Markdown file."""
-    sweep_path = processed_dir / "theorem3_sweep.json"
-    if not sweep_path.exists():
-        raise FileNotFoundError(
-            f"Theorem 3 sweep data not found at {sweep_path}. "
-            "Run `python -m src.collect_data` first."
-        )
-
-    with open(sweep_path) as f:
-        sweep: List[Dict] = json.load(f)
+    from src.theorems.theorem3 import load_sweep
+    sweep: List[Dict] = load_sweep(processed_dir)
 
     def _find(sec: int) -> Dict:
         return _find_sweep_entry(sweep, sec)

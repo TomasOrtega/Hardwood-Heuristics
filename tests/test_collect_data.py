@@ -7,7 +7,7 @@ synthetic and empty data.
 
 from __future__ import annotations
 
-import json
+import csv
 from pathlib import Path
 
 import pandas as pd
@@ -32,6 +32,16 @@ def _write_synthetic_transitions(tmp_path: Path, n: int = 1000) -> None:
     df.to_parquet(tmp_path / "transitions.parquet", index=False)
 
 
+def _read_sweep_csv(path: Path):
+    """Read a theorem sweep CSV and return a list of dicts."""
+    rows = []
+    with open(path, newline="") as fh:
+        reader = csv.DictReader(fh)
+        for row in reader:
+            rows.append(row)
+    return rows
+
+
 # ---------------------------------------------------------------------------
 # _collect_theorem3
 # ---------------------------------------------------------------------------
@@ -41,13 +51,12 @@ class TestCollectTheorem3:
         _write_synthetic_transitions(tmp_path)
         out = _collect_theorem3(out_dir=tmp_path, processed_dir=tmp_path)
         assert out.exists()
-        assert out.name == "theorem3_sweep.json"
+        assert out.name == "theorem3_sweep.csv"
 
     def test_sweep_has_expected_keys(self, tmp_path):
         _write_synthetic_transitions(tmp_path)
         out = _collect_theorem3(out_dir=tmp_path, processed_dir=tmp_path)
-        with open(out) as f:
-            sweep = json.load(f)
+        sweep = _read_sweep_csv(out)
         assert len(sweep) > 0
         for entry in sweep:
             assert "seconds_remaining" in entry
@@ -59,29 +68,26 @@ class TestCollectTheorem3:
     def test_sweep_covers_20_to_50_seconds(self, tmp_path):
         _write_synthetic_transitions(tmp_path)
         out = _collect_theorem3(out_dir=tmp_path, processed_dir=tmp_path)
-        with open(out) as f:
-            sweep = json.load(f)
-        secs = [e["seconds_remaining"] for e in sweep]
+        sweep = _read_sweep_csv(out)
+        secs = [int(e["seconds_remaining"]) for e in sweep]
         assert min(secs) == 20
         assert max(secs) == 50
 
     def test_win_rates_bounded(self, tmp_path):
         _write_synthetic_transitions(tmp_path)
         out = _collect_theorem3(out_dir=tmp_path, processed_dir=tmp_path)
-        with open(out) as f:
-            sweep = json.load(f)
+        sweep = _read_sweep_csv(out)
         for entry in sweep:
-            assert 0.0 <= entry["ev_timeout"] <= 1.0
-            assert 0.0 <= entry["ev_play_on"] <= 1.0
+            assert 0.0 <= float(entry["ev_timeout"]) <= 1.0
+            assert 0.0 <= float(entry["ev_play_on"]) <= 1.0
 
     def test_ev_gain_matches_difference(self, tmp_path):
         _write_synthetic_transitions(tmp_path)
         out = _collect_theorem3(out_dir=tmp_path, processed_dir=tmp_path)
-        with open(out) as f:
-            sweep = json.load(f)
+        sweep = _read_sweep_csv(out)
         for entry in sweep:
-            expected = round(entry["ev_timeout"] - entry["ev_play_on"], 4)
-            assert abs(entry["ev_gain"] - expected) < 1e-9
+            expected = round(float(entry["ev_timeout"]) - float(entry["ev_play_on"]), 4)
+            assert abs(float(entry["ev_gain"]) - expected) < 1e-9
 
     def test_fallback_with_no_transitions(self, tmp_path):
         """Without transitions.parquet uses synthetic fallback — should not error."""

@@ -65,9 +65,14 @@ def _make_sweep(
 
 
 def _write_theorem1_data(tmp_path: Path, sweep: list[dict]) -> None:
-    """Write sweep list to theorem1_sweep.json in tmp_path."""
-    with open(tmp_path / "theorem1_sweep.json", "w") as f:
-        json.dump(sweep, f)
+    """Write sweep list to theorem1_sweep.csv in tmp_path."""
+    import csv as _csv
+    fieldnames = ["seconds_remaining", "ev_rush", "ev_normal", "ev_gain", "rush_is_optimal"]
+    with open(tmp_path / "theorem1_sweep.csv", "w", newline="") as fh:
+        writer = _csv.DictWriter(fh, fieldnames=fieldnames)
+        writer.writeheader()
+        for row in sweep:
+            writer.writerow({k: row[k] for k in fieldnames if k in row})
 
 
 def _make_theorem3_sweep(
@@ -104,9 +109,14 @@ def _make_theorem3_sweep(
 
 
 def _write_theorem3_data(tmp_path: Path, sweep: list[dict]) -> None:
-    """Write sweep list to theorem3_sweep.json in tmp_path."""
-    with open(tmp_path / "theorem3_sweep.json", "w") as f:
-        json.dump(sweep, f)
+    """Write sweep list to theorem3_sweep.csv in tmp_path."""
+    import csv as _csv
+    fieldnames = ["seconds_remaining", "ev_timeout", "ev_play_on", "ev_gain", "timeout_is_optimal"]
+    with open(tmp_path / "theorem3_sweep.csv", "w", newline="") as fh:
+        writer = _csv.DictWriter(fh, fieldnames=fieldnames)
+        writer.writeheader()
+        for row in sweep:
+            writer.writerow({k: row[k] for k in fieldnames if k in row})
 
 
 def _write_theorem2_data(

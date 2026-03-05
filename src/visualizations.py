@@ -218,37 +218,20 @@ def plot_two_for_one_ev_curve(
 # ---------------------------------------------------------------------------
 def _plot_theorem2(processed_dir: Path = PROCESSED_DIR, images_dir: Path = IMAGES_DIR) -> Path:
     """Load Theorem 2 data and save the Foul-Up-3 heatmap."""
-    t2_grid_path = processed_dir / "theorem2_grid.csv"
-    t2_meta_path = processed_dir / "theorem2_metadata.json"
-    if not (t2_grid_path.exists() and t2_meta_path.exists()):
-        raise FileNotFoundError(
-            f"Theorem 2 data not found in {processed_dir}. "
-            "Run `python -m src.collect_data` first."
-        )
-    logger.info("Loading pre-computed Theorem 2 data from %s", t2_grid_path)
-    grid = np.loadtxt(t2_grid_path, delimiter=",")
-    with open(t2_meta_path) as f:
-        meta = json.load(f)
-    time_values = meta["time_values"]
-    fg3_values = meta["fg3_pct_values"]
-    return plot_foul_up_3_heatmap(
-        grid, time_values, fg3_values,
-        out_path=images_dir / "foul_up_3_heatmap.svg",
-    )
+    from src.theorems.theorem2 import plot as _t2_plot
+    return _t2_plot(processed_dir, images_dir)
 
 
 def _plot_theorem1(processed_dir: Path = PROCESSED_DIR, images_dir: Path = IMAGES_DIR) -> Path:
     """Load Theorem 1 data and save the 2-for-1 win-percentage curve."""
-    t1_sweep_path = processed_dir / "theorem1_sweep.json"
-    if not t1_sweep_path.exists():
-        raise FileNotFoundError(
-            f"Theorem 1 data not found at {t1_sweep_path}. "
-            "Run `python -m src.collect_data` first."
-        )
-    logger.info("Loading pre-computed Theorem 1 data from %s", t1_sweep_path)
-    with open(t1_sweep_path) as f:
-        sweep = json.load(f)
-    return plot_two_for_one_ev_curve(sweep, out_path=images_dir / "two_for_one_ev_curve.svg")
+    from src.theorems.theorem1 import plot as _t1_plot
+    return _t1_plot(processed_dir, images_dir)
+
+
+def _plot_theorem3(processed_dir: Path = PROCESSED_DIR, images_dir: Path = IMAGES_DIR) -> Path:
+    """Load Theorem 3 data and save the Late-Game Timeout win-percentage curve."""
+    from src.theorems.theorem3 import plot as _t3_plot
+    return _t3_plot(processed_dir, images_dir)
 
 
 # ---------------------------------------------------------------------------
@@ -258,6 +241,7 @@ def _plot_theorem1(processed_dir: Path = PROCESSED_DIR, images_dir: Path = IMAGE
 _PLOTTERS: dict = {
     "theorem1": _plot_theorem1,
     "theorem2": _plot_theorem2,
+    "theorem3": _plot_theorem3,
 }
 
 

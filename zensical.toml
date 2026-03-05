@@ -1,0 +1,47 @@
+[project]
+site_name = "Hardwood Heuristics"
+site_description = "Empirical analysis of NBA folk wisdom"
+site_author = "Hardwood Heuristics Team"
+site_url = "https://tomasortega.github.io/Hardwood-Heuristics/"
+
+repo_name = "TomasOrtega/Hardwood-Heuristics"
+repo_url = "https://github.com/TomasOrtega/Hardwood-Heuristics"
+
+nav = [
+  { "Home" = "index.md" },
+  { "Theorem 1: The 2-for-1" = "theorem1_two_for_one.md" },
+  { "Theorem 2: Foul Up 3" = "theorem2_foul_up_3.md" },
+  { "Theorem 3: The Late-Game Timeout" = "theorem3_timeout.md" },
+]
+
+extra_javascript = [
+  "https://polyfill.io/v3/polyfill.min.js?features=es6",
+  "https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js",
+]
+
+[project.theme]
+language = "en"
+features = [
+  "navigation.tabs",
+  "navigation.top",
+  "search.highlight",
+  "content.code.copy",
+]
+
+[[project.theme.palette]]
+scheme = "default"
+primary = "indigo"
+accent = "orange"
+toggle.icon = "lucide/sun"
+toggle.name = "Switch to dark mode"
+
+[[project.theme.palette]]
+scheme = "slate"
+primary = "indigo"
+accent = "orange"
+toggle.icon = "lucide/moon"
+toggle.name = "Switch to light mode"
+
+[project.theme.font]
+text = "Roboto"
+code = "Roboto Mono"
