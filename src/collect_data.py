@@ -21,9 +21,9 @@ Adding a new theorem
 Saved artefacts (written to ``data/processed/``)
 -------------------------------------------------
 * ``theorem1_sweep.json``          – Historical win-rate sweep for Theorem 1 (2-for-1).
-* ``theorem2_grid.npy``            – Win-rate-gain grid for Theorem 2 (Foul-Up-3).
-* ``theorem2_wp_foul_grid.npy``    – Historical win rate when fouling (per cell).
-* ``theorem2_wp_no_foul_grid.npy`` – Historical win rate without fouling (per cell).
+* ``theorem2_grid.csv``            – Win-rate-gain grid for Theorem 2 (Foul-Up-3).
+* ``theorem2_wp_foul_grid.csv``    – Historical win rate when fouling (per cell).
+* ``theorem2_wp_no_foul_grid.csv`` – Historical win rate without fouling (per cell).
 * ``theorem2_metadata.json``       – Parameter labels (time_values, fg3_pct_values).
 * ``theorem3_sweep.json``          – Historical win-rate sweep for Theorem 3 (Late-Game Timeout).
 """
@@ -197,12 +197,12 @@ def _collect_theorem2(
             wp_no_foul_grid[i, j] = round(wp_no_foul, 4)
             grid[i, j] = round(wp_foul - wp_no_foul, 4)
 
-    grid_path = out_dir / "theorem2_grid.npy"
-    np.save(grid_path, grid)
+    grid_path = out_dir / "theorem2_grid.csv"
+    np.savetxt(grid_path, grid, delimiter=",")
     logger.info("Saved Theorem 2 gain grid to %s", grid_path)
 
-    np.save(out_dir / "theorem2_wp_foul_grid.npy", wp_foul_grid)
-    np.save(out_dir / "theorem2_wp_no_foul_grid.npy", wp_no_foul_grid)
+    np.savetxt(out_dir / "theorem2_wp_foul_grid.csv", wp_foul_grid, delimiter=",")
+    np.savetxt(out_dir / "theorem2_wp_no_foul_grid.csv", wp_no_foul_grid, delimiter=",")
     logger.info("Saved Theorem 2 individual WP grids to %s", out_dir)
 
     meta_path = out_dir / "theorem2_metadata.json"

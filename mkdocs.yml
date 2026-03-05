@@ -7,7 +7,7 @@ repo_name: Hardwood-Heuristics/Hardwood-Heuristics
 repo_url: https://github.com/Hardwood-Heuristics/Hardwood-Heuristics
 
 theme:
-  name: material
+  name: zensical
   palette:
     - scheme: default
       primary: indigo

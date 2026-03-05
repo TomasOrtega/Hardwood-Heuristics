@@ -518,9 +518,9 @@ def _generate_theorem2_doc(
     docs_dir: Path = DOCS_DIR,
 ) -> Path:
     """Load Theorem 2 sweep data and write the theorem2 Markdown file."""
-    grid_path    = processed_dir / "theorem2_grid.npy"
-    foul_path    = processed_dir / "theorem2_wp_foul_grid.npy"
-    no_foul_path = processed_dir / "theorem2_wp_no_foul_grid.npy"
+    grid_path    = processed_dir / "theorem2_grid.csv"
+    foul_path    = processed_dir / "theorem2_wp_foul_grid.csv"
+    no_foul_path = processed_dir / "theorem2_wp_no_foul_grid.csv"
     meta_path    = processed_dir / "theorem2_metadata.json"
 
     for p in (grid_path, meta_path):
@@ -536,11 +536,11 @@ def _generate_theorem2_doc(
     time_values: List[int]   = meta["time_values"]
     fg3_values: List[float]  = meta["fg3_pct_values"]
 
-    gain_grid = np.load(grid_path)
+    gain_grid = np.loadtxt(grid_path, delimiter=",")
 
     if foul_path.exists() and no_foul_path.exists():
-        wp_foul_grid    = np.load(foul_path)
-        wp_no_foul_grid = np.load(no_foul_path)
+        wp_foul_grid    = np.loadtxt(foul_path, delimiter=",")
+        wp_no_foul_grid = np.loadtxt(no_foul_path, delimiter=",")
     else:
         logger.warning(
             "Individual WP grids not found; reconstructing from gain grid. "
