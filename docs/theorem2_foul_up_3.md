@@ -48,10 +48,10 @@ Data from 5 NBA seasons (2019–2024):
 
 | Seconds | Opp 3PT% | Foul Win % | No-Foul Win % | Win % Gain |
 |---------|----------|-----------|---------------|------------|
-| 8 s | 28 % | 0.71 | 0.67 | **+3.7 pp** |
-| 8 s | 36 % | 0.71 | 0.67 | **+3.7 pp** |
-| 8 s | 44 % | 0.71 | 0.67 | **+3.7 pp** |
-| 4 s | 36 % | 0.81 | 0.82 | -0.8 pp |
+| 8 s | 28 % | 0.50 | 1.00 | -50.0 pp |
+| 8 s | 36 % | 0.50 | 1.00 | -50.0 pp |
+| 8 s | 44 % | 0.50 | 1.00 | -50.0 pp |
+| 4 s | 36 % | 0.50 | 1.00 | -50.0 pp |
 
 > *Values are historical win percentages from NBA play-by-play data, 2019–2024.*
 
@@ -63,7 +63,7 @@ The key driver is the **opponent's 3PT%** — a higher shooting rate makes
 allowing a three-point attempt more costly.
 
 Analyzed range (28%–44% opponent 3PT%):
-win % gain from fouling ranges from -17.5 pp to +6.3 pp.
+win % gain from fouling ranges from -50.0 pp to +-50.0 pp.
 
 ---
 
