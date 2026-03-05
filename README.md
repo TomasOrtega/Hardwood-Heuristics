@@ -80,10 +80,18 @@ uv run pytest tests/ -v
 ```
 
 **Run the Local Documentation Server**
+
+This project uses the [zensical](https://github.com/zensical/zensical) MkDocs theme. To start the local docs server:
 ```bash
 NO_MKDOCS_2_WARNING=1 uv run mkdocs serve
 ```
 Navigate to `http://127.0.0.1:8000/` in your browser to view the site.
+
+To build the static site without serving:
+```bash
+NO_MKDOCS_2_WARNING=1 uv run mkdocs build
+```
+The generated site is written to the `site/` directory.
 
 ---
 

@@ -126,7 +126,7 @@ of games where the home team went on to win given that choice.
 
 ## Results
 
-![2-for-1 Win Percentage Curve](assets/images/two_for_one_ev_curve.png)
+![2-for-1 Win Percentage Curve](assets/images/two_for_one_ev_curve.svg)
 
 ### Key Findings
 
@@ -356,7 +356,7 @@ and compute the home-team historical win percentage for each.
 
 ## Results
 
-![Foul Up 3 Heatmap](assets/images/foul_up_3_heatmap.png)
+![Foul Up 3 Heatmap](assets/images/foul_up_3_heatmap.svg)
 
 The heatmap shows the historical win % gain from fouling (green = fouling better,
 red = normal defence better) across time remaining and opponent 3PT%.
@@ -634,7 +634,7 @@ each group across a sweep of time-remaining values.
 
 ## Results
 
-![Late-Game Timeout Win Percentage Curve](assets/images/timeout_ev_curve.png)
+![Late-Game Timeout Win Percentage Curve](assets/images/timeout_ev_curve.svg)
 
 ### Key Findings
 
