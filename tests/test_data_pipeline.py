@@ -183,6 +183,7 @@ class TestPlayByPlayParser:
                 "fouls_to_give",
                 "action_taken",
                 "game_outcome",
+                "opponent_fg3_pct",
             }
             assert required.issubset(set(result.columns))
 
@@ -215,6 +216,7 @@ class TestBuildSyntheticTransitions:
             "fouls_to_give",
             "action_taken",
             "game_outcome",
+            "opponent_fg3_pct",
         }
         assert required.issubset(set(df.columns))
 
