@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hardwood-heuristics"
+version = "0.1.0"
+description = "NBA Folk Theorems: Data-driven historical analysis of late-game basketball strategies"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Hardwood Heuristics Team" }]
+keywords = ["nba", "basketball", "historical-analysis", "statistics", "pandas"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Topic :: Scientific/Engineering :: Mathematics",
+]
+dependencies = [
+    "kaggle>=1.6",
+    "pandas>=2.0",
+    "numpy>=1.26",
+    "scipy>=1.11",
+    "pyarrow>=14.0",
+    "matplotlib>=3.8",
+    "seaborn>=0.13",
+    "zensical>=0.0.24",
+    "requests>=2.31",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4",
+    "pytest-cov>=4.1",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
