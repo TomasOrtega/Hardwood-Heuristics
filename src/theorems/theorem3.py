@@ -19,7 +19,11 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 
-from src.theorems.utils import get_resolved_possessions_at_time, load_sweep_csv, write_sweep_csv
+from src.theorems.utils import (
+    get_resolved_possessions_at_time,
+    load_sweep_csv,
+    write_sweep_csv,
+)
 
 matplotlib.use("Agg")
 
@@ -90,7 +94,8 @@ def collect(
 
         resolved = get_resolved_possessions_at_time(df, sec)
         window = resolved[
-            (resolved["score_differential"].between(-3, 0)) & (resolved["possession"] == 1)
+            (resolved["score_differential"].between(-3, 0))
+            & (resolved["possession"] == 1)
         ]
         timeout_outcomes = window.loc[
             window["action_taken"] == "timeout", "game_outcome"
@@ -254,22 +259,6 @@ each group across a sweep of time-remaining values.
 
 ![Late-Game Timeout Win Percentage Curve](assets/images/timeout_ev_curve.svg)
 
-### Key Findings
-
-{key_findings}
-
-### Historical Data Summary
-
-Data from 5 NBA seasons (2019--2024):
-
-| Seconds | Timeout Win % | Play-On Win % | Win % Gain | Better Strategy |
-|---------|--------------|--------------|------------|----------------|
-| 40 s | {ev_timeout_40} | {ev_play_on_40} | {ev_gain_40} | {optimal_40} |
-| 30 s | {ev_timeout_30} | {ev_play_on_30} | {ev_gain_30} | {optimal_30} |
-| 20 s | {ev_timeout_20} | {ev_play_on_20} | {ev_gain_20} | {optimal_20} |
-
-> *Values are historical win percentages from NBA play-by-play data, 2019--2024.*
-
 ---
 
 ## Conclusion
@@ -279,92 +268,6 @@ Data from 5 NBA seasons (2019--2024):
 
 
 _MIN_SIGNIFICANT_WINDOW_SIZE = 4
-
-
-def _build_key_findings(sweep: List[Dict]) -> str:
-    """
-    Construct the Key Findings bullet list for Theorem 3 from sweep data.
-    Returns a markdown-formatted string.
-    """
-    from src.generate_docs import _consecutive_positive_windows
-
-    sorted_sweep = sorted(sweep, key=lambda e: e["seconds_remaining"])
-    gains = [e["ev_gain"] for e in sorted_sweep]
-    positive_count = sum(1 for g in gains if g > 0)
-    total = len(gains)
-
-    mean_gain = sum(gains) / total if total > 0 else 0.0
-    max_entry = max(sorted_sweep, key=lambda e: e["ev_gain"])
-    min_entry = min(sorted_sweep, key=lambda e: e["ev_gain"])
-
-    if positive_count == 0:
-        return (
-            "1. **Calling a timeout does not improve win rate** across any of "
-            "the analyzed time windows — playing on is at least as good in all "
-            "cases studied.\n\n"
-            "2. **The gap is small**: the timeout decision has limited measurable "
-            "impact on historical outcomes."
-        )
-
-    if positive_count == total:
-        return (
-            f"1. **A timeout is beneficial across all analyzed windows** "
-            f"({sorted_sweep[0]['seconds_remaining']}--"
-            f"{sorted_sweep[-1]['seconds_remaining']} s), "
-            f"with an average win % gain of **+{mean_gain * 100:.1f} pp**.\n\n"
-            f"2. **The advantage peaks around {max_entry['seconds_remaining']} s** "
-            f"(+{max_entry['ev_gain'] * 100:.1f} pp) and is smallest near "
-            f"{min_entry['seconds_remaining']} s "
-            f"(+{min_entry['ev_gain'] * 100:.1f} pp)."
-        )
-
-    # Check for a dominant consecutive positive window
-    windows = _consecutive_positive_windows(sweep)
-    if windows:
-        best_window = max(windows, key=lambda w: w[1] - w[0])
-        window_entries = [
-            e for e in sorted_sweep
-            if best_window[0] <= e["seconds_remaining"] <= best_window[1]
-        ]
-        window_count = len(window_entries)
-        if window_count >= _MIN_SIGNIFICANT_WINDOW_SIZE:
-            window_mean_gain = sum(e["ev_gain"] for e in window_entries) / window_count
-            outside = [
-                e for e in sorted_sweep
-                if not (best_window[0] <= e["seconds_remaining"] <= best_window[1])
-            ]
-            outside_positive = [e for e in outside if e["ev_gain"] > 0]
-            outside_negative = [e for e in outside if e["ev_gain"] <= 0]
-            return (
-                f"1. **Consistent advantage from {best_window[0]}--{best_window[1]} s**: "
-                f"a timeout improves win rate at all {window_count} time buckets in this "
-                f"window (average gain: +{window_mean_gain * 100:.1f} pp; peak: "
-                f"+{max_entry['ev_gain'] * 100:.1f} pp at ~{max_entry['seconds_remaining']} s).\n\n"
-                f"2. **Mixed results below {best_window[0]} s**: "
-                f"a timeout helps at {len(outside_positive)} bucket(s) but hurts at "
-                f"{len(outside_negative)} other(s) in the {min(e['seconds_remaining'] for e in outside)}--"
-                f"{max(e['seconds_remaining'] for e in outside)} s range.\n\n"
-                f"3. **Largest disadvantage**: ~{min_entry['seconds_remaining']} s "
-                f"({min_entry['ev_gain'] * 100:.1f} pp) — calling a timeout close to the "
-                f"{min_entry['seconds_remaining']}-second mark carries meaningful risk."
-            )
-
-    positive_secs = [e["seconds_remaining"] for e in sorted_sweep if e["ev_gain"] > 0]
-    negative_secs = [e["seconds_remaining"] for e in sorted_sweep if e["ev_gain"] <= 0]
-
-    return (
-        f"1. **Results are mixed**: a timeout helps at "
-        f"{len(positive_secs)} of {total} time buckets "
-        f"({min(positive_secs)}--{max(positive_secs)} s) "
-        f"but hurts at {len(negative_secs)} others "
-        f"({min(negative_secs)}--{max(negative_secs)} s).\n\n"
-        f"2. **Largest advantage**: ~{max_entry['seconds_remaining']} s "
-        f"(+{max_entry['ev_gain'] * 100:.1f} pp). "
-        f"Largest disadvantage: ~{min_entry['seconds_remaining']} s "
-        f"({min_entry['ev_gain'] * 100:.1f} pp).\n\n"
-        "3. **No clean pattern**: the data does not identify a time window where "
-        "calling a timeout is consistently better or worse."
-    )
 
 
 def _build_conclusion(sweep: List[Dict]) -> str:
@@ -395,7 +298,8 @@ def _build_conclusion(sweep: List[Dict]) -> str:
     if windows:
         best_window = max(windows, key=lambda w: w[1] - w[0])
         window_entries = [
-            e for e in sorted_sweep
+            e
+            for e in sorted_sweep
             if best_window[0] <= e["seconds_remaining"] <= best_window[1]
         ]
         if len(window_entries) >= _MIN_SIGNIFICANT_WINDOW_SIZE:
@@ -448,11 +352,9 @@ def generate_doc(
     def _optimal_label(gain: float) -> str:
         return "Timeout ✓" if gain > 0 else "Play On ✓"
 
-    key_findings = _build_key_findings(sweep)
     conclusion = _build_conclusion(sweep)
 
     content = _TEMPLATE.format(
-        key_findings=key_findings,
         conclusion=conclusion,
         ev_timeout_40=_fmt_ev(e40["ev_timeout"]),
         ev_play_on_40=_fmt_ev(e40["ev_play_on"]),

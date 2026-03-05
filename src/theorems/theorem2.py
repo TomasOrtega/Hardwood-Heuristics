@@ -300,6 +300,7 @@ versus playing normal defense, based on NBA play-by-play data (2019--2024).
 
 Foul the opponent when they are a competent 3PT shooting team (≥ 30%).
 Against poor 3PT teams, normal defense remains the safer choice.
+
 """
 
     out_path = docs_dir / DOC_FILENAME

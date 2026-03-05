@@ -237,91 +237,12 @@ of games where the home team went on to win given that choice.
 
 ![2-for-1 Win Percentage Curve](assets/images/two_for_one_ev_curve.svg)
 
-### Key Findings
-
-{key_findings}
-
-### Historical Data Summary
-
-Data from 5 NBA seasons (2019--2024):
-
-| Scenario | Rush Win % | Hold Win % | Win % Gain | Better Strategy |
-|----------|-----------|-----------|------------|----------------|
-| 32 s, tied | {ev_rush_32} | {ev_normal_32} | {ev_gain_32} | {optimal_32} |
-| 40 s, tied | {ev_rush_40} | {ev_normal_40} | {ev_gain_40} | {optimal_40} |
-| 20 s, tied | {ev_rush_20} | {ev_normal_20} | {ev_gain_20} | {optimal_20} |
-
-> *Values are historical win percentages from NBA play-by-play data, 2019--2024.*
-
 ---
 
 ## Conclusion
 
 {conclusion}
 """
-
-
-def _build_key_findings(sweep: List[Dict]) -> str:
-    """
-    Dynamically construct the Key Findings bullet list from the sweep data.
-    Returns a markdown-formatted string.
-    """
-    from src.generate_docs import _consecutive_positive_windows
-
-    windows = _consecutive_positive_windows(sweep)
-    sorted_sweep = sorted(sweep, key=lambda e: e["seconds_remaining"])
-
-    if not windows:
-        return (
-            "1. **No consistent rushing advantage found** in the current data — "
-            "normal possession is at least as good across all analyzed time buckets. "
-            "The 2-for-1 effect is not apparent in this sample."
-        )
-
-    main_window = max(windows, key=lambda w: w[1] - w[0])
-    all_secs = [e["seconds_remaining"] for e in sorted_sweep]
-    sweep_min, sweep_max = min(all_secs), max(all_secs)
-    window_covers_full_range = (
-        main_window[0] == sweep_min and main_window[1] == sweep_max
-    )
-
-    lines: List[str] = []
-
-    if window_covers_full_range:
-        max_gain_entry = max(sorted_sweep, key=lambda e: e["ev_gain"])
-        classic_entries = [
-            e for e in sorted_sweep if 28 <= e["seconds_remaining"] <= 34
-        ]
-        if classic_entries:
-            avg_gain_classic = sum(e["ev_gain"] for e in classic_entries) / len(
-                classic_entries
-            )
-            lines.append(
-                f"1. **Classic 2-for-1 window (~28--34 s): modest positive signal.**"
-                f" Average win % gain ≈ +{avg_gain_classic:.2f} — rushing secures "
-                "two possessions against the opponent's one, but the margin is small."
-            )
-        lines.append(
-            f"2. **The advantage is largest around ~{max_gain_entry['seconds_remaining']} s**, "
-            "where rushing leaves enough time for a second possession while the opponent "
-            "can only respond once."
-        )
-        lines.append(
-            "3. **No sharp threshold**: the signal is noisy across individual time buckets. "
-            "Treat any specific second value as a rough guide, not a precise trigger."
-        )
-    else:
-        lines.append(
-            f"1. **Rushing shows a positive signal around the ~{main_window[0]}--{main_window[1]} s window**, "
-            "but results are noisy — individual time buckets often flip sign."
-        )
-
-    lines.append(
-        f"{len(lines) + 1}. **Sample sizes are small per bucket** — treat these as "
-        "directional signals, not precise thresholds."
-    )
-
-    return "\n\n".join(lines)
 
 
 def generate_doc(
@@ -384,13 +305,10 @@ def generate_doc(
             "window, but do not sacrifice shot quality for a specific clock value."
         )
 
-    key_findings = _build_key_findings(sweep)
-
     def _optimal_label(gain: float) -> str:
         return "Rush ✓" if gain > 0 else "Normal ✓"
 
     content = _TEMPLATE.format(
-        key_findings=key_findings,
         conclusion=conclusion,
         ev_rush_32=_fmt_ev(e32["ev_rush"]),
         ev_normal_32=_fmt_ev(e32["ev_normal"]),

@@ -3,7 +3,7 @@
 ## Claim
 
 > **Based on NBA play-by-play data from 2019--2024, rushing a shot in tied
-> games shows a positive win-rate signal around 18--22 seconds remaining.
+> games shows a positive win-rate signal around 46--62 seconds remaining.
 > The effect is noisy and no single threshold reliably separates when
 > rushing helps from when it hurts.**
 
