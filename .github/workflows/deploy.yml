@@ -31,7 +31,7 @@ jobs:
 
       - name: Generate plots
         run: |
-          uv run python -m src.visualizations
+          uv run python -m src.generate_plots
         continue-on-error: true   # Don't fail deploy if plot generation has issues
 
       - name: Build site
