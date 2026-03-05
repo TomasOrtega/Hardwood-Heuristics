@@ -11,8 +11,7 @@
 
 ## How We Measure It
 
-We filter the historical play-by-play log for tied games and group each
-possession by strategy:
+We filter the historical play-by-play log for tied games **where the home team has possession** and group each possession by strategy:
 
 - **Rush (shoot):** The possessing team takes a shot attempt.
 - **Normal (hold):** The possessing team holds the ball (any non-shooting action).

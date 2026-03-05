@@ -356,16 +356,7 @@ class PlayByPlayParser:
     # Public API
     # ------------------------------------------------------------------
     def parse(self, raw_df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Parse raw PBP into a flat historical possession log.
-
-        Returns
-        -------
-        pd.DataFrame with columns:
-            game_id, season, seconds_remaining, score_differential,
-            possession, fouls_to_give, action_taken, game_outcome,
-            opponent_fg3_pct
-        """
+        """Parse raw PBP into a flat historical possession log."""
         if raw_df.empty:
             return pd.DataFrame()
 
@@ -386,8 +377,6 @@ class PlayByPlayParser:
         raw_df = self._add_seconds_remaining(raw_df)
         raw_df = self._add_score_columns(raw_df)
 
-        # Pre-compute opponent (away) 3-point FG% from the full game data for
-        # each game so that the late-game truncation does not skew the estimate.
         fg3_pct_by_game: Dict[str, float] = {}
         for game_id, full_game_df in raw_df.groupby("GAME_ID"):
             visitor_desc = full_game_df["VISITORDESCRIPTION"].fillna("").str.upper()
@@ -400,27 +389,27 @@ class PlayByPlayParser:
                 round(fg3_made / fg3_attempted, 4) if fg3_attempted > 0 else 0.33
             )
 
-        # Keep only final 3 minutes of 4th quarter or OT periods
-        late_game = raw_df[
-            (raw_df["PERIOD"] >= 4)
-            & (raw_df["seconds_remaining"] <= FINAL_PERIOD_SECONDS)
-        ].copy()
-
-        if late_game.empty:
-            return pd.DataFrame()
-
         rows: List[Dict] = []
-        for game_id, game_df in late_game.groupby("GAME_ID"):
-            # Determine game_outcome from the final score of this game
+        # Group by the FULL raw_df to trace chronological possession perfectly
+        for game_id, game_df in raw_df.groupby("GAME_ID"):
+            # Skip games that don't have any late-game data
+            has_late_game = (
+                (game_df["PERIOD"] >= 4)
+                & (game_df["seconds_remaining"] <= FINAL_PERIOD_SECONDS)
+            ).any()
+            if not has_late_game:
+                continue
+
             game_outcome = self._compute_game_outcome(game_df)
-            # Derive season from GAME_ID or from SEASON column if present
             if "SEASON" in raw_df.columns:
                 season = str(raw_df.loc[raw_df["GAME_ID"] == game_id, "SEASON"].iloc[0])
             else:
                 season = _season_from_game_id(str(game_id))
 
             opponent_fg3_pct = fg3_pct_by_game.get(str(game_id), 0.33)
-            game_rows = self._process_game(str(game_id), season, game_outcome, game_df, opponent_fg3_pct)
+            game_rows = self._process_game(
+                str(game_id), season, game_outcome, game_df, opponent_fg3_pct
+            )
             rows.extend(game_rows)
 
         if not rows:
@@ -481,8 +470,8 @@ class PlayByPlayParser:
     def _infer_possession(self, row: pd.Series, current_possession: int) -> int:
         """Heuristic: determine which team has the ball after this event."""
         etype = int(row.get("EVENTMSGTYPE", 0))
-        home_desc = str(row.get("HOMEDESCRIPTION", "") or "")
-        away_desc = str(row.get("VISITORDESCRIPTION", "") or "")
+        home_desc = str(row.get("HOMEDESCRIPTION", "") or "").upper()
+        away_desc = str(row.get("VISITORDESCRIPTION", "") or "").upper()
 
         if etype == self._SHOT_MADE_TYPE:
             return 1 - current_possession
@@ -498,10 +487,17 @@ class PlayByPlayParser:
             return 1 - current_possession
         if etype == self._FREE_THROW_TYPE:
             desc = home_desc + away_desc
-            if "1 of 1" in desc or "2 of 2" in desc or "3 of 3" in desc:
-                if "MISS" in desc.upper():
+            if "1 OF 1" in desc or "2 OF 2" in desc or "3 OF 3" in desc:
+                if "MISS" in desc:
                     return current_possession
                 return 1 - current_possession
+        if etype == self._VIOLATION_TYPE:
+            desc = home_desc + away_desc
+            # Kicked ball and defensive violations retain possession.
+            if "KICKED BALL" in desc or "DEFENSIVE" in desc:
+                return current_possession
+            return 1 - current_possession
+
         return current_possession
 
     def _classify_action(self, row: pd.Series) -> str:
@@ -536,33 +532,42 @@ class PlayByPlayParser:
         opponent_fg3_pct: float,
     ) -> List[Dict]:
         rows: List[Dict] = []
-        possession = 1  # start with home team (simplification)
+        possession = (
+            1  # Start with home team (will self-correct within seconds of tip-off)
+        )
         fouls_to_give = 1
 
-        events = df.sort_values("seconds_remaining", ascending=False).reset_index(
-            drop=True
-        )
+        # Sort chronologically: Period ascending, Seconds Remaining descending
+        events = df.sort_values(
+            ["PERIOD", "seconds_remaining"], ascending=[True, False]
+        ).reset_index(drop=True)
 
         for _, row in events.iterrows():
+            period = int(row["PERIOD"])
             sec = int(row["seconds_remaining"])
             score_diff = int(row["score_differential"])
             action_taken = self._classify_action(row)
+
+            # Update state variables chronologically for the entire game
             next_possession = self._infer_possession(row, possession)
             next_fouls = self._fouls_remaining(row, possession)
 
-            rows.append(
-                {
-                    "game_id": game_id,
-                    "season": season,
-                    "seconds_remaining": sec,
-                    "score_differential": score_diff,
-                    "possession": possession,
-                    "fouls_to_give": fouls_to_give,
-                    "action_taken": action_taken,
-                    "game_outcome": game_outcome,
-                    "opponent_fg3_pct": opponent_fg3_pct,
-                }
-            )
+            # Only record the possession if it falls into our target time window
+            if period >= 4 and sec <= FINAL_PERIOD_SECONDS:
+                rows.append(
+                    {
+                        "game_id": game_id,
+                        "season": season,
+                        "seconds_remaining": sec,
+                        "score_differential": score_diff,
+                        "possession": possession,
+                        "fouls_to_give": fouls_to_give,
+                        "action_taken": action_taken,
+                        "game_outcome": game_outcome,
+                        "opponent_fg3_pct": opponent_fg3_pct,
+                    }
+                )
+
             possession = next_possession
             fouls_to_give = next_fouls
 

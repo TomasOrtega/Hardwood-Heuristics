@@ -74,7 +74,12 @@ def collect(
     logger.info("Computing Theorem 1 (2-for-1) historical win rates…")
 
     rows: List[Dict] = []
-    tied = df[df["score_differential"] == 0] if not df.empty else df
+
+    tied = (
+        df[(df["score_differential"] == 0) & (df["possession"] == 1)]
+        if not df.empty
+        else df
+    )
 
     for sec in range(10, 65, 2):
         if tied.empty:
@@ -226,8 +231,7 @@ _TEMPLATE = """\
 
 ## How We Measure It
 
-We filter the historical play-by-play log for tied games and group each
-possession by strategy:
+We filter the historical play-by-play log for tied games **where the home team has possession** and group each possession by strategy:
 
 - **Rush (shoot):** The possessing team takes a shot attempt.
 - **Normal (hold):** The possessing team holds the ball (any non-shooting action).

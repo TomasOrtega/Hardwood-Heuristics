@@ -86,10 +86,8 @@ def collect(
 
     if not df.empty:
         mask = (
-            (
-                ((df["score_differential"] == 3) & (df["possession"] == 0))
-                | ((df["score_differential"] == -3) & (df["possession"] == 1))
-            )
+            (df["score_differential"] == 3)
+            & (df["possession"] == 0)
             & (df["seconds_remaining"] < 12)
         )
         filtered = df[mask]
@@ -112,9 +110,13 @@ def collect(
                 wp_no_foul = _DEFAULT_WIN_RATE
             else:
                 fg3_bin = window[
-                    window["opponent_fg3_pct"].between(fg3 - 0.025, fg3 + 0.025, inclusive="both")
+                    window["opponent_fg3_pct"].between(
+                        fg3 - 0.025, fg3 + 0.025, inclusive="both"
+                    )
                 ]
-                foul_outcomes = fg3_bin.loc[fg3_bin["action_taken"] == "foul", "game_outcome"]
+                foul_outcomes = fg3_bin.loc[
+                    fg3_bin["action_taken"] == "foul", "game_outcome"
+                ]
                 no_foul_outcomes = fg3_bin.loc[
                     fg3_bin["action_taken"] != "foul", "game_outcome"
                 ]
