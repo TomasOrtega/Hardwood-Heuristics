@@ -1,15 +1,15 @@
 # NBA Folk Theorems
 
-> *"The plural of anecdote is not data — but the plural of possession is history."*
+> *We talking about analytics?*
 
 ## Introduction
 
 **NBA Folk Theorems** is an empirical research project that examines the final three
 minutes of NBA games to *quantitatively* test common basketball strategies coaches
 and analysts have debated for decades.
+We call each one of these strategies a "theorem" — a statement about the optimal strategic choice in a given game situation.
 
-We use five seasons of NBA play-by-play data (2019–24) and **pandas aggregations**
-to compute actual historical win percentages for each strategic choice.
+We use five seasons of NBA play-by-play data (2019–24) and to compute actual historical win percentages for each strategic choice.
 
 Conclusions are based strictly on what *actually happened* in real games.
 
@@ -19,6 +19,7 @@ Conclusions are based strictly on what *actually happened* in real games.
 
 ### Data Collection
 
+Based on Wyatt Walsh's [NBA Database](https://www.kaggle.com/datasets/wyattowalsh/basketball).
 For every play-by-play event in the final 3 minutes of the 4th quarter (or overtime),
 we record:
 
