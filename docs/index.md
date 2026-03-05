@@ -36,11 +36,23 @@ we record:
 
 ### Analysis Method
 
-For each theorem we:
+Each theorem targets a specific late-game decision point.  We evaluate it by:
 
-1. **Filter** the historical log to the relevant game situation.
-2. **Group** possessions by the strategic action taken.
-3. **Aggregate** — compute `mean(game_outcome)` for each group (historical win %).
+1. **Filter** — restrict `transitions.parquet` to the exact game situation
+   (score margin, possession, time window, fouls-to-give) that defines the
+   theorem's scenario.
+2. **Time-bucket** — for each target clock value *t*, include all possessions
+   within a ±1-second window (*t* − 1 to *t* + 1) to gather sufficient
+   observations while keeping adjacent buckets approximately independent.
+3. **Split by action** — separate possessions into the two (or more) strategic
+   choices being compared (e.g., *rush* vs. *hold*, *foul* vs. *no-foul*,
+   *timeout* vs. *no timeout*).
+4. **Win-rate estimate** — compute `mean(game_outcome)` for each action group,
+   yielding an empirical home-team win percentage.  When a bucket has no
+   observations the win rate defaults to 0.50 (coin-flip prior).
+5. **Compare** — report the win-percentage *gain* (action A minus action B) at
+   each time value and identify when, if ever, one strategy is consistently
+   better.
 
 ---
 
