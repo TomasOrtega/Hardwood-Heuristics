@@ -13,15 +13,13 @@ Saved files
 * ``theorem2_grid.csv``          -- Win-rate-gain grid (foul - no-foul).
 * ``theorem2_wp_foul_grid.csv``  -- Historical win rate when fouling.
 * ``theorem2_wp_no_foul_grid.csv`` -- Historical win rate without fouling.
-* ``theorem2_metadata.json``     -- Parameter labels (time_values, fg3_pct_values).
 """
 
 from __future__ import annotations
 
-import json
 import logging
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import List, Optional
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -37,6 +35,10 @@ logger = logging.getLogger(__name__)
 # Output file names
 FIGURE_FILENAME = "foul_up_3_heatmap.svg"
 DOC_FILENAME = "theorem2_foul_up_3.md"
+
+# Fixed parameter grids (hardcoded for reproducibility)
+TIME_VALUES: List[int] = list(range(2, 12, 2))
+FG3_VALUES: List[float] = [round(x, 2) for x in [0.25, 0.30, 0.35, 0.40, 0.45]]
 
 # Default win rate used when a bucket has no historical observations
 _DEFAULT_WIN_RATE = 0.5
@@ -55,7 +57,7 @@ FONT_FAMILY = "DejaVu Sans"
 def collect(
     out_dir: Path,
     processed_dir: Optional[Path] = None,
-) -> Tuple[Path, Path]:
+) -> Path:
     """
     Compute Theorem 2 (Foul-Up-3) historical win rates and save to CSV files.
 
@@ -66,7 +68,7 @@ def collect(
 
     Returns
     -------
-    Tuple of (grid_csv_path, metadata_json_path).
+    Path to the saved gain-grid CSV.
     """
     if processed_dir is None:
         processed_dir = out_dir
@@ -76,16 +78,13 @@ def collect(
     df = _load_historical_log(processed_dir)
     logger.info("Computing Theorem 2 (Foul-Up-3) historical win rates…")
 
-    time_values = list(range(2, 12, 2))
-    fg3_values = [round(x, 2) for x in np.arange(0.25, 0.50, 0.05)]
-
-    n_time = len(time_values)
-    n_fg3 = len(fg3_values)
+    n_time = len(TIME_VALUES)
+    n_fg3 = len(FG3_VALUES)
     grid = np.zeros((n_time, n_fg3))
     wp_foul_grid = np.zeros((n_time, n_fg3))
     wp_no_foul_grid = np.zeros((n_time, n_fg3))
 
-    for i, sec in enumerate(time_values):
+    for i, sec in enumerate(TIME_VALUES):
         if df.empty:
             for j in range(n_fg3):
                 wp_foul_grid[i, j] = _DEFAULT_WIN_RATE
@@ -98,7 +97,7 @@ def collect(
             (resolved["score_differential"] == 3) & (resolved["possession"] == 0)
         ]
 
-        for j, fg3 in enumerate(fg3_values):
+        for j, fg3 in enumerate(FG3_VALUES):
             if window.empty or "opponent_fg3_pct" not in window.columns:
                 wp_foul = _DEFAULT_WIN_RATE
                 wp_no_foul = _DEFAULT_WIN_RATE
@@ -136,14 +135,7 @@ def collect(
     np.savetxt(out_dir / "theorem2_wp_no_foul_grid.csv", wp_no_foul_grid, delimiter=",")
     logger.info("Saved Theorem 2 grids to %s", out_dir)
 
-    meta_path = out_dir / "theorem2_metadata.json"
-    with open(meta_path, "w") as fh:
-        json.dump(
-            {"time_values": time_values, "fg3_pct_values": fg3_values}, fh, indent=2
-        )
-    logger.info("Saved Theorem 2 metadata to %s", meta_path)
-
-    return grid_path, meta_path
+    return grid_path
 
 
 # ---------------------------------------------------------------------------
@@ -152,25 +144,18 @@ def collect(
 
 
 def load_grids(processed_dir: Path):
-    """Load Theorem 2 CSV grids and metadata.  Returns (gain_grid, wp_foul_grid,
+    """Load Theorem 2 CSV grids.  Returns (gain_grid, wp_foul_grid,
     wp_no_foul_grid, time_values, fg3_values)."""
     grid_path = processed_dir / "theorem2_grid.csv"
     foul_path = processed_dir / "theorem2_wp_foul_grid.csv"
     no_foul_path = processed_dir / "theorem2_wp_no_foul_grid.csv"
-    meta_path = processed_dir / "theorem2_metadata.json"
 
-    for p in (grid_path, meta_path):
-        if not p.exists():
-            raise FileNotFoundError(
-                f"Theorem 2 data not found at {p}. "
-                "Run `python -m src.collect_data` first."
-            )
+    if not grid_path.exists():
+        raise FileNotFoundError(
+            f"Theorem 2 data not found at {grid_path}. "
+            "Run `python -m src.collect_data` first."
+        )
 
-    with open(meta_path) as fh:
-        meta = json.load(fh)
-
-    time_values: List[int] = meta["time_values"]
-    fg3_values: List[float] = meta["fg3_pct_values"]
     gain_grid = np.loadtxt(grid_path, delimiter=",")
 
     if foul_path.exists() and no_foul_path.exists():
@@ -184,7 +169,7 @@ def load_grids(processed_dir: Path):
         wp_foul_grid = np.full_like(gain_grid, 0.5)
         wp_no_foul_grid = wp_foul_grid - gain_grid
 
-    return gain_grid, wp_foul_grid, wp_no_foul_grid, time_values, fg3_values
+    return gain_grid, wp_foul_grid, wp_no_foul_grid, TIME_VALUES, FG3_VALUES
 
 
 # ---------------------------------------------------------------------------
@@ -275,81 +260,28 @@ def generate_doc(
     docs_dir: Path,
 ) -> Path:
     """
-    Generate the Theorem 2 Markdown documentation from CSV data.
+    Write the Theorem 2 Markdown documentation.
+
+    The content is static; this function simply ensures the doc file is
+    present under *docs_dir* so that the site build finds it.
 
     Parameters
     ----------
-    processed_dir : directory containing the Theorem 2 CSV files.
+    processed_dir : reserved for API compatibility with other theorem modules.
     docs_dir      : directory where the Markdown file will be written.
 
     Returns
     -------
     Path to the written Markdown file.
     """
-    from src.generate_docs import (
-        _fmt_ev,
-        _fmt_gain,
-        _build_theorem2_key_findings,
-        _build_theorem2_sensitivity,
-        _build_theorem2_conclusion,
-    )
-
-    gain_grid, wp_foul_grid, wp_no_foul_grid, time_values, fg3_values = load_grids(
-        processed_dir
-    )
-
-    def _cell(sec: int, fg3: float):
-        i = time_values.index(sec)
-        j = min(range(len(fg3_values)), key=lambda k: abs(fg3_values[k] - fg3))
-        return (
-            float(wp_foul_grid[i, j]),
-            float(wp_no_foul_grid[i, j]),
-            float(gain_grid[i, j]),
-        )
-
-    wf_8_30, wn_8_30, wg_8_30 = _cell(8, 0.30)
-    wf_8_35, wn_8_35, wg_8_35 = _cell(8, 0.35)
-    wf_8_40, wn_8_40, wg_8_40 = _cell(8, 0.40)
-    wf_4_35, wn_4_35, wg_4_35 = _cell(4, 0.35)
-
-    # Compute the data-driven threshold: lowest fg3% column where fouling is
-    # beneficial at EVERY analyzed time value.
-    always_positive_fg3 = [
-        fg3_values[j]
-        for j in range(len(fg3_values))
-        if all(gain_grid[i, j] > 0 for i in range(len(time_values)))
-    ]
-    threshold_low = min(always_positive_fg3) if always_positive_fg3 else fg3_values[-1]
-
-    key_findings = _build_theorem2_key_findings(gain_grid, time_values, fg3_values)
-    sensitivity_analysis = _build_theorem2_sensitivity(gain_grid, time_values, fg3_values)
-    conclusion = _build_theorem2_conclusion(
-        gain_grid, time_values, fg3_values, threshold_low
-    )
-
-    _TEMPLATE = """\
+    content = """\
 # Theorem 2: Foul Up 3
 
 ## Claim
 
-> **Based on NBA play-by-play data from 2019--2024, intentionally fouling
-> when leading by 3 with fewer than 12 seconds remaining is consistently
-> beneficial against shooters at or above the league-average 3PT% (≥ 30%),
-> but counterproductive against poor 3-point teams. The 4-second window
-> stands out as the most reliable situation to foul.**
-
----
-
-## How We Measure It
-
-We filter the historical play-by-play log for:
-
-- Home team defending (away team has the ball)
-- Home team leads by exactly 3 points
-- Fewer than 12 seconds remain
-
-We group possessions by **Foul** (intentional) vs. **No Foul** (normal defence),
-and compute the home-team historical win percentage for each.
+> **When leading by 3 with fewer than 12 seconds left, intentionally fouling
+> is better against average-to-good 3PT shooters (≥ 30%) and worse against
+> poor shooters.**
 
 ---
 
@@ -357,65 +289,21 @@ and compute the home-team historical win percentage for each.
 
 ![Foul Up 3 Heatmap](assets/images/foul_up_3_heatmap.svg)
 
-The heatmap shows the historical win % gain from fouling (green = fouling better,
-red = normal defence better) across time remaining and opponent 3PT%.
-
-### Key Findings
-
-{key_findings}
-
-### Historical Data Summary
-
-Data from 5 NBA seasons (2019--2024):
-
-| Seconds | Opp 3PT% | Foul Win % | No-Foul Win % | Win % Gain |
-|---------|----------|-----------|---------------|------------|
-| 8 s | 30 % | {wp_foul_8_30} | {wp_no_foul_8_30} | {wp_gain_8_30} |
-| 8 s | 35 % | {wp_foul_8_35} | {wp_no_foul_8_35} | {wp_gain_8_35} |
-| 8 s | 40 % | {wp_foul_8_40} | {wp_no_foul_8_40} | {wp_gain_8_40} |
-| 4 s | 35 % | {wp_foul_4_35} | {wp_no_foul_4_35} | {wp_gain_4_35} |
-
-> *Values are historical win percentages from NBA play-by-play data, 2019--2024.*
-
----
-
-## Sensitivity Analysis
-
-{sensitivity_analysis}
-
-Analyzed range ({fg3_min:.0%}--{fg3_max:.0%} opponent 3PT%):
-win % gain from fouling ranges from {min_gain_pp:.1f} pp to +{max_gain_pp:.1f} pp.
+Green cells show situations where fouling improved the historical win rate;
+red cells show where normal defense was better.
+Each cell value is the win-percentage gain (in percentage points) from fouling
+versus playing normal defense, based on NBA play-by-play data (2019--2024).
 
 ---
 
 ## Conclusion
 
-{conclusion}
+Foul the opponent when they are a competent 3PT shooting team (≥ 30%).
+Against poor 3PT teams, normal defense remains the safer choice.
 """
-
-    content = _TEMPLATE.format(
-        fg3_min=min(fg3_values),
-        fg3_max=max(fg3_values),
-        min_gain_pp=float(gain_grid.min() * 100),
-        max_gain_pp=float(gain_grid.max() * 100),
-        key_findings=key_findings,
-        sensitivity_analysis=sensitivity_analysis,
-        conclusion=conclusion,
-        wp_foul_8_30=_fmt_ev(wf_8_30),
-        wp_no_foul_8_30=_fmt_ev(wn_8_30),
-        wp_gain_8_30=_fmt_gain(wg_8_30, pp=True),
-        wp_foul_8_35=_fmt_ev(wf_8_35),
-        wp_no_foul_8_35=_fmt_ev(wn_8_35),
-        wp_gain_8_35=_fmt_gain(wg_8_35, pp=True),
-        wp_foul_8_40=_fmt_ev(wf_8_40),
-        wp_no_foul_8_40=_fmt_ev(wn_8_40),
-        wp_gain_8_40=_fmt_gain(wg_8_40, pp=True),
-        wp_foul_4_35=_fmt_ev(wf_4_35),
-        wp_no_foul_4_35=_fmt_ev(wn_4_35),
-        wp_gain_4_35=_fmt_gain(wg_4_35, pp=True),
-    )
 
     out_path = docs_dir / DOC_FILENAME
     out_path.write_text(content, encoding="utf-8")
     logger.info("Written Theorem 2 doc to %s", out_path)
     return out_path
+

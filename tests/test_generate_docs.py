@@ -8,7 +8,6 @@ hardcoded values.
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 import numpy as np
@@ -16,8 +15,6 @@ import pytest
 
 from src.generate_docs import (
     _build_theorem1_key_findings,
-    _build_theorem2_conclusion,
-    _build_theorem2_key_findings,
     _build_theorem3_conclusion,
     _build_theorem3_key_findings,
     _consecutive_positive_windows,
@@ -158,8 +155,6 @@ def _write_theorem2_data(
     np.savetxt(
         tmp_path / "theorem2_wp_no_foul_grid.csv", wp_no_foul_grid, delimiter=","
     )
-    with open(tmp_path / "theorem2_metadata.json", "w") as f:
-        json.dump({"time_values": time_values, "fg3_pct_values": fg3_values}, f)
 
 
 # ---------------------------------------------------------------------------
@@ -258,33 +253,6 @@ class TestBuildTheorem1KeyFindings:
         assert "No consistent" in text or "does not" in text.lower()
 
 
-class TestBuildTheorem2KeyFindings:
-    def test_all_positive(self):
-        gain_grid = np.full((3, 3), 0.07)
-        text = _build_theorem2_key_findings(gain_grid, [2, 4, 6], [0.25, 0.35, 0.45])
-        assert "all analyzed scenarios" in text
-        assert "7.0 pp" in text or "7." in text
-
-    def test_mixed(self):
-        gain_grid = np.array([[-0.02, 0.05], [-0.01, 0.06]])
-        text = _build_theorem2_key_findings(gain_grid, [4, 8], [0.30, 0.45])
-        assert "45" in text or "normal defense" in text.lower()
-
-
-class TestBuildTheorem2Conclusion:
-    def test_all_positive(self):
-        gain_grid = np.full((3, 3), 0.07)
-        text = _build_theorem2_conclusion(
-            gain_grid, [2, 4, 6], [0.25, 0.35, 0.45], 0.34
-        )
-        assert "all analyzed" in text
-
-    def test_some_negative(self):
-        gain_grid = np.array([[-0.02, 0.05], [-0.01, 0.06]])
-        text = _build_theorem2_conclusion(gain_grid, [4, 8], [0.30, 0.45], 0.34)
-        assert "34" in text
-
-
 # ---------------------------------------------------------------------------
 # _generate_theorem1_doc
 # ---------------------------------------------------------------------------
@@ -323,59 +291,24 @@ class TestGenerateTheorem1Doc:
 # ---------------------------------------------------------------------------
 class TestGenerateTheorem2Doc:
     def test_file_created(self, tmp_path):
-        _write_theorem2_data(tmp_path)
         out = _generate_theorem2_doc(processed_dir=tmp_path, docs_dir=tmp_path)
         assert out.exists()
-        assert out.stat().st_size > 500
+        assert out.stat().st_size > 100
 
-    def test_values_match_analysis(self, tmp_path):
-        _write_theorem2_data(tmp_path)
+    def test_contains_figure(self, tmp_path):
         _generate_theorem2_doc(processed_dir=tmp_path, docs_dir=tmp_path)
         content = (tmp_path / "theorem2_foul_up_3.md").read_text()
+        assert "foul_up_3_heatmap.svg" in content
 
-        # The doc should contain percentage-formatted values from the grid
-        # (gain values ≥ 5 pp are expected given gain_offset=0.0 default)
-        assert "Win %" in content or "win %" in content.lower()
-
-    def test_foul_cost_correct(self, tmp_path):
-        """Verify the expected cost of foul is ~-1.2 pp, not ~-118 pp."""
-        _write_theorem2_data(tmp_path)
+    def test_contains_conclusion(self, tmp_path):
         _generate_theorem2_doc(processed_dir=tmp_path, docs_dir=tmp_path)
         content = (tmp_path / "theorem2_foul_up_3.md").read_text()
-
-        # foul cost should appear in the -0.x to -2.x range (not hundreds)
-        import re
-
-        match = re.search(r"\\approx\s*(-?\d+\.\d+)\\text\{\\s*pp\}", content)
-        if match:
-            cost_val = float(match.group(1))
-            assert -3.0 < cost_val < 0.0, f"Unexpected foul cost: {cost_val}"
-
-    def test_missing_data_raises(self, tmp_path):
-        with pytest.raises(FileNotFoundError):
-            _generate_theorem2_doc(processed_dir=tmp_path, docs_dir=tmp_path)
+        assert "## Conclusion" in content
 
     def test_returns_path(self, tmp_path):
-        _write_theorem2_data(tmp_path)
         result = _generate_theorem2_doc(processed_dir=tmp_path, docs_dir=tmp_path)
         assert isinstance(result, Path)
         assert result.name == "theorem2_foul_up_3.md"
-
-    def test_all_positive_grid_conclusion(self, tmp_path):
-        """When fouling is always better, conclusion should say 'all analyzed'."""
-        _write_theorem2_data(tmp_path, gain_offset=0.05)
-        _generate_theorem2_doc(processed_dir=tmp_path, docs_dir=tmp_path)
-        content = (tmp_path / "theorem2_foul_up_3.md").read_text()
-        assert "all analyzed" in content
-
-    def test_fallback_without_wp_grids(self, tmp_path):
-        """Without individual WP grids the code reconstructs using gain grid + neutral default."""
-        _write_theorem2_data(tmp_path)
-        # Remove the individual WP grid files to trigger the fallback path.
-        (tmp_path / "theorem2_wp_foul_grid.csv").unlink()
-        (tmp_path / "theorem2_wp_no_foul_grid.csv").unlink()
-        out = _generate_theorem2_doc(processed_dir=tmp_path, docs_dir=tmp_path)
-        assert out.exists()
 
 
 # ---------------------------------------------------------------------------
