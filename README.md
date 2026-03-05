@@ -81,17 +81,11 @@ uv run pytest tests/ -v
 
 **Run the Local Documentation Server**
 
-This project uses the [zensical](https://github.com/zensical/zensical) MkDocs theme. To start the local docs server:
+This project uses [zensical](https://github.com/zensical/zensical).
 ```bash
-NO_MKDOCS_2_WARNING=1 uv run mkdocs serve
+uv run zensical serve
 ```
-Navigate to `http://127.0.0.1:8000/` in your browser to view the site.
-
-To build the static site without serving:
-```bash
-NO_MKDOCS_2_WARNING=1 uv run mkdocs build
-```
-The generated site is written to the `site/` directory.
+Navigate to `http://localhost:8000` in your browser to view the site.
 
 ---
 
@@ -102,5 +96,5 @@ The generated site is written to the `site/` directory.
 * `src/data_pipeline.py`: Object-oriented data loader using the Kaggle basketball dataset, featuring caching and a parser to convert raw event strings into a flat historical possession log.
 * `src/visualizations.py`: Output generators using `matplotlib` and `seaborn` to create publication-ready historical win-percentage plots. Loads pre-saved data from `data/processed/` when available.
 * `tests/`: Unit tests for the data pipeline and visualization functions.
-* `docs/`: The markdown source files for the MkDocs static website.
+* `docs/`: The markdown source files for the static website.
 

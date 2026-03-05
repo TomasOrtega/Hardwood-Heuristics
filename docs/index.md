@@ -41,46 +41,6 @@ For each theorem we:
 2. **Group** possessions by the strategic action taken.
 3. **Aggregate** — compute `mean(game_outcome)` for each group (historical win %).
 
-### Shooting Statistics (2019–24 Reference)
-
-| Statistic | Value |
-|-----------|-------|
-| 2PT field-goal % | 52 % |
-| 3PT field-goal % | 36 % |
-| Free-throw % | 77 % |
-| Turnover rate | 12 % |
-
----
-
-## Repository Structure
-
-```
-Hardwood-Heuristics/
-├── src/
-│   ├── data_pipeline.py     # scraper, parser, flat possession log builder
-│   ├── collect_data.py      # pandas groupby aggregations for each theorem
-│   └── visualizations.py   # publication-ready historical win % plots
-├── tests/                   # pytest unit tests
-├── data/
-│   ├── raw/                 # cached per-game Parquet files
-│   └── processed/           # tidy possession log and aggregated results
-├── notebooks/               # exploratory Jupyter notebooks
-├── docs/                    # this site (built by MkDocs)
-│   └── assets/images/       # generated plots
-├── mkdocs.yml
-└── pyproject.toml
-```
-
----
-
-## Theorems Investigated
-
-| # | Name | Claim |
-|---|------|-------|
-| [1](theorem1_two_for_one.md) | The 2-for-1 | Rushing a shot to secure two possessions shows a positive historical signal, but no sharp clock threshold |
-| [2](theorem2_foul_up_3.md)   | Foul Up 3   | Intentionally fouling when leading by 3 with < 12 s left historically increases win rate, especially vs. good shooters |
-| [3](theorem3_timeout.md)     | The Late-Game Timeout | Calling a timeout when trailing with 20–50 s left and possession does not consistently improve win rate |
-
 ---
 
 ## Getting Started
@@ -102,5 +62,5 @@ python -m src.collect_data
 python -m src.visualizations
 
 # Build documentation
-mkdocs serve
+zensical serve
 ```

@@ -40,8 +40,8 @@
 #           uv run python -m src.visualizations
 #         continue-on-error: true   # Don't fail deploy if plot generation has issues
 
-#       - name: Build MkDocs site
-#         run: uv run mkdocs build --strict
+#       - name: Build site
+#         run: uv run zensical build
 
 #       - name: Deploy to GitHub Pages
 #         uses: peaceiris/actions-gh-pages@v4
