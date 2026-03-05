@@ -19,7 +19,13 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 
-from src.theorems.utils import get_resolved_possessions_at_time, load_sweep_csv, write_sweep_csv
+from src.theorems.utils import (
+    apply_plot_aesthetics,
+    FIGURE_DPI,
+    get_resolved_possessions_at_time,
+    load_sweep_csv,
+    write_sweep_csv,
+)
 
 matplotlib.use("Agg")
 
@@ -32,10 +38,6 @@ DOC_FILENAME = "theorem1_two_for_one.md"
 
 # Default win rate used when a bucket has no historical observations
 _DEFAULT_WIN_RATE = 0.5
-
-# Consistent aesthetics
-FIGURE_DPI = 150
-FONT_FAMILY = "DejaVu Sans"
 
 
 # ---------------------------------------------------------------------------
@@ -157,15 +159,7 @@ def plot(
     ev_normal = [r["ev_normal"] for r in sweep]
     ev_gain = [r["ev_gain"] for r in sweep]
 
-    plt.rcParams.update(
-        {
-            "font.family": FONT_FAMILY,
-            "axes.titlesize": 14,
-            "axes.labelsize": 12,
-            "xtick.labelsize": 10,
-            "ytick.labelsize": 10,
-        }
-    )
+    apply_plot_aesthetics()
 
     fig, axes = plt.subplots(2, 1, figsize=(10, 8), sharex=True)
 

@@ -26,7 +26,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
 
-from src.theorems.utils import get_resolved_possessions_at_time
+from src.theorems.utils import (
+    apply_plot_aesthetics,
+    FIGURE_DPI,
+    PALETTE,
+    get_resolved_possessions_at_time,
+)
 
 matplotlib.use("Agg")
 
@@ -42,11 +47,6 @@ FG3_VALUES: List[float] = [round(x, 2) for x in [0.25, 0.30, 0.35, 0.40, 0.45]]
 
 # Default win rate used when a bucket has no historical observations
 _DEFAULT_WIN_RATE = 0.5
-
-# Consistent aesthetics
-PALETTE = "RdYlGn"
-FIGURE_DPI = 150
-FONT_FAMILY = "DejaVu Sans"
 
 
 # ---------------------------------------------------------------------------
@@ -200,15 +200,7 @@ def plot(
     x_labels = [f"{v:.0%}" for v in fg3_values]
     y_labels = [f"{t}s" for t in time_values]
 
-    plt.rcParams.update(
-        {
-            "font.family": FONT_FAMILY,
-            "axes.titlesize": 14,
-            "axes.labelsize": 12,
-            "xtick.labelsize": 10,
-            "ytick.labelsize": 10,
-        }
-    )
+    apply_plot_aesthetics()
 
     fig, ax = plt.subplots(figsize=(10, 6))
     sns.heatmap(

@@ -63,9 +63,6 @@ Each theorem targets a specific late-game decision point.  We evaluate it by:
 ## Getting Started
 
 ```bash
-# Install dependencies (pip)
-pip install -e ".[dev]"
-
 # Install dependencies (uv — faster)
 uv sync
 
@@ -79,7 +76,7 @@ python -m src.scrape_nba_data
 python -m src.collect_data
 
 # Generate plots
-python -m src.visualizations
+python -m src.generate_plots
 
 # Build documentation
 zensical serve
