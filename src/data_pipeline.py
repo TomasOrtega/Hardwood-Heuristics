@@ -386,6 +386,20 @@ class PlayByPlayParser:
         raw_df = self._add_seconds_remaining(raw_df)
         raw_df = self._add_score_columns(raw_df)
 
+        # Pre-compute opponent (away) 3-point FG% from the full game data for
+        # each game so that the late-game truncation does not skew the estimate.
+        fg3_pct_by_game: Dict[str, float] = {}
+        for game_id, full_game_df in raw_df.groupby("GAME_ID"):
+            visitor_desc = full_game_df["VISITORDESCRIPTION"].fillna("").str.upper()
+            is_shot_made = full_game_df["EVENTMSGTYPE"] == self._SHOT_MADE_TYPE
+            is_shot_missed = full_game_df["EVENTMSGTYPE"] == self._SHOT_MISSED_TYPE
+            is_3pt = visitor_desc.str.contains("3PT", na=False)
+            fg3_made = int((is_shot_made & is_3pt).sum())
+            fg3_attempted = int(((is_shot_made | is_shot_missed) & is_3pt).sum())
+            fg3_pct_by_game[str(game_id)] = (
+                round(fg3_made / fg3_attempted, 4) if fg3_attempted > 0 else 0.33
+            )
+
         # Keep only final 3 minutes of 4th quarter or OT periods
         late_game = raw_df[
             (raw_df["PERIOD"] >= 4)
@@ -405,7 +419,8 @@ class PlayByPlayParser:
             else:
                 season = _season_from_game_id(str(game_id))
 
-            game_rows = self._process_game(str(game_id), season, game_outcome, game_df)
+            opponent_fg3_pct = fg3_pct_by_game.get(str(game_id), 0.33)
+            game_rows = self._process_game(str(game_id), season, game_outcome, game_df, opponent_fg3_pct)
             rows.extend(game_rows)
 
         if not rows:
@@ -512,38 +527,17 @@ class PlayByPlayParser:
             return min(MAX_FOULS_TO_GIVE, 2)
         return 1
 
-    def _compute_opponent_fg3_pct(self, game_df: pd.DataFrame) -> float:
-        """
-        Compute the visiting (away) team's 3-point FG% for this game as a
-        proxy for ``opponent_fg3_pct``.
-
-        The heuristic scans VISITORDESCRIPTION for "3PT" to identify 3-point
-        shot attempts; EVENTMSGTYPE 1 = made, 2 = missed.  Returns the league-
-        average default (0.33) when no 3-point attempts are found.
-        """
-        visitor_desc = game_df["VISITORDESCRIPTION"].fillna("").str.upper()
-        is_shot_made = game_df["EVENTMSGTYPE"] == self._SHOT_MADE_TYPE
-        is_shot_missed = game_df["EVENTMSGTYPE"] == self._SHOT_MISSED_TYPE
-        is_3pt = visitor_desc.str.contains("3PT", na=False)
-
-        fg3_made = int((is_shot_made & is_3pt).sum())
-        fg3_attempted = int(((is_shot_made | is_shot_missed) & is_3pt).sum())
-
-        if fg3_attempted == 0:
-            return 0.33  # league-average default
-        return round(fg3_made / fg3_attempted, 4)
-
     def _process_game(
         self,
         game_id: str,
         season: str,
         game_outcome: int,
         df: pd.DataFrame,
+        opponent_fg3_pct: float,
     ) -> List[Dict]:
         rows: List[Dict] = []
         possession = 1  # start with home team (simplification)
         fouls_to_give = 1
-        opponent_fg3_pct = self._compute_opponent_fg3_pct(df)
 
         events = df.sort_values("seconds_remaining", ascending=False).reset_index(
             drop=True

@@ -86,8 +86,10 @@ def collect(
 
     if not df.empty:
         mask = (
-            (df["score_differential"] == 3)
-            & (df["possession"] == 0)
+            (
+                ((df["score_differential"] == 3) & (df["possession"] == 0))
+                | ((df["score_differential"] == -3) & (df["possession"] == 1))
+            )
             & (df["seconds_remaining"] < 12)
         )
         filtered = df[mask]
