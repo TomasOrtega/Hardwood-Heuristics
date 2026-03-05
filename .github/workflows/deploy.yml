@@ -27,7 +27,7 @@ jobs:
           python-version: "3.11"
 
       - name: Install project package and dependencies
-        run: uv sync --extra dev
+        run: uv sync
 
       - name: Generate plots
         run: |
