@@ -23,7 +23,7 @@ and compute the home-team historical win percentage for each.
 
 ## Results
 
-![Foul Up 3 Heatmap](assets/images/foul_up_3_heatmap.png)
+![Foul Up 3 Heatmap](assets/images/foul_up_3_heatmap.svg)
 
 The heatmap shows the historical win % gain from fouling (green = fouling better,
 red = normal defence better) across time remaining and opponent 3PT%.

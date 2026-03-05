@@ -7,9 +7,9 @@ Outputs are saved to ``docs/assets/images/``.
 
 Plots
 -----
-* ``foul_up_3_heatmap.png``   – Win-probability gain (foul vs. no-foul) as a
+* ``foul_up_3_heatmap.svg``   – Win-probability gain (foul vs. no-foul) as a
   heatmap over Time Remaining × Opponent 3PT%.
-* ``two_for_one_ev_curve.png`` – Expected-value gain from rushing a shot vs.
+* ``two_for_one_ev_curve.svg`` – Expected-value gain from rushing a shot vs.
   taking a full possession across a range of seconds-remaining values.
 """
 
@@ -75,10 +75,10 @@ def plot_foul_up_3_heatmap(
 
     Returns
     -------
-    Path to the saved PNG file.
+    Path to the saved SVG file.
     """
     if out_path is None:
-        out_path = IMAGES_DIR / "foul_up_3_heatmap.png"
+        out_path = IMAGES_DIR / "foul_up_3_heatmap.svg"
 
     fig, ax = plt.subplots(figsize=(10, 6))
 
@@ -149,10 +149,10 @@ def plot_two_for_one_ev_curve(
 
     Returns
     -------
-    Path to the saved PNG file.
+    Path to the saved SVG file.
     """
     if out_path is None:
-        out_path = IMAGES_DIR / "two_for_one_ev_curve.png"
+        out_path = IMAGES_DIR / "two_for_one_ev_curve.svg"
 
     seconds = [r["seconds_remaining"] for r in sweep_results]
     ev_rush   = [r["ev_rush"]   for r in sweep_results]
@@ -233,7 +233,7 @@ def _plot_theorem2(processed_dir: Path = PROCESSED_DIR, images_dir: Path = IMAGE
     fg3_values = meta["fg3_pct_values"]
     return plot_foul_up_3_heatmap(
         grid, time_values, fg3_values,
-        out_path=images_dir / "foul_up_3_heatmap.png",
+        out_path=images_dir / "foul_up_3_heatmap.svg",
     )
 
 
@@ -248,7 +248,7 @@ def _plot_theorem1(processed_dir: Path = PROCESSED_DIR, images_dir: Path = IMAGE
     logger.info("Loading pre-computed Theorem 1 data from %s", t1_sweep_path)
     with open(t1_sweep_path) as f:
         sweep = json.load(f)
-    return plot_two_for_one_ev_curve(sweep, out_path=images_dir / "two_for_one_ev_curve.png")
+    return plot_two_for_one_ev_curve(sweep, out_path=images_dir / "two_for_one_ev_curve.svg")
 
 
 # ---------------------------------------------------------------------------

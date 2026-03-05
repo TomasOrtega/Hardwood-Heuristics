@@ -24,7 +24,7 @@ of games where the home team went on to win given that choice.
 
 ## Results
 
-![2-for-1 Win Percentage Curve](assets/images/two_for_one_ev_curve.png)
+![2-for-1 Win Percentage Curve](assets/images/two_for_one_ev_curve.svg)
 
 ### Key Findings
 

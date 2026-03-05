@@ -28,7 +28,7 @@ each group across a sweep of time-remaining values.
 
 ## Results
 
-![Late-Game Timeout Win Percentage Curve](assets/images/timeout_ev_curve.png)
+![Late-Game Timeout Win Percentage Curve](assets/images/timeout_ev_curve.svg)
 
 ### Key Findings
 
