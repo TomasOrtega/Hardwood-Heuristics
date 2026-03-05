@@ -21,10 +21,10 @@ from src.collect_data import (
 )
 from src.data_pipeline import build_synthetic_transitions
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _write_synthetic_transitions(tmp_path: Path, n: int = 1000) -> None:
     """Write synthetic transitions.parquet to tmp_path."""
@@ -45,6 +45,7 @@ def _read_sweep_csv(path: Path):
 # ---------------------------------------------------------------------------
 # _collect_theorem3
 # ---------------------------------------------------------------------------
+
 
 class TestCollectTheorem3:
     def test_creates_json_file(self, tmp_path):
@@ -98,6 +99,7 @@ class TestCollectTheorem3:
         """collect_theorem3 public API delegates to _collect_theorem3."""
         _write_synthetic_transitions(tmp_path)
         from src.collect_data import PROCESSED_DIR
+
         # Redirect to tmp_path by calling private directly via public alias
         out = collect_theorem3(out_dir=tmp_path)
         assert out.exists()

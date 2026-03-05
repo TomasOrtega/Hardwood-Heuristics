@@ -2,7 +2,7 @@
 
 ## Claim
 
-> **Based on NBA play-by-play data from 2019–2024, teams leading by 3 points
+> **Based on NBA play-by-play data from 2019--2024, teams leading by 3 points
 > with fewer than 12 seconds remaining generally win more often when they
 > intentionally foul — especially against good three-point shooters.**
 
@@ -30,7 +30,7 @@ red = normal defence better) across time remaining and opponent 3PT%.
 
 ### Key Findings
 
-1. **Fouling is most beneficial with 4–8 seconds remaining and a high-percentage
+1. **Fouling is most beneficial with 4--8 seconds remaining and a high-percentage
    3PT shooter (≥ 28%).** The heatmap shows the largest positive values in this
    region.
 
@@ -44,16 +44,16 @@ red = normal defence better) across time remaining and opponent 3PT%.
 
 ### Historical Data Summary
 
-Data from 5 NBA seasons (2019–2024):
+Data from 5 NBA seasons (2019--2024):
 
 | Seconds | Opp 3PT% | Foul Win % | No-Foul Win % | Win % Gain |
 |---------|----------|-----------|---------------|------------|
-| 8 s | 28 % | 0.50 | 1.00 | -50.0 pp |
-| 8 s | 36 % | 0.50 | 1.00 | -50.0 pp |
-| 8 s | 44 % | 0.50 | 1.00 | -50.0 pp |
-| 4 s | 36 % | 0.50 | 1.00 | -50.0 pp |
+| 8 s | 28 % | 0.71 | 0.67 | **+3.7 pp** |
+| 8 s | 36 % | 0.71 | 0.67 | **+3.7 pp** |
+| 8 s | 44 % | 0.71 | 0.67 | **+3.7 pp** |
+| 4 s | 36 % | 0.81 | 0.82 | -0.8 pp |
 
-> *Values are historical win percentages from NBA play-by-play data, 2019–2024.*
+> *Values are historical win percentages from NBA play-by-play data, 2019--2024.*
 
 ---
 
@@ -62,8 +62,8 @@ Data from 5 NBA seasons (2019–2024):
 The key driver is the **opponent's 3PT%** — a higher shooting rate makes
 allowing a three-point attempt more costly.
 
-Analyzed range (28%–44% opponent 3PT%):
-win % gain from fouling ranges from -50.0 pp to +-50.0 pp.
+Analyzed range (28%--44% opponent 3PT%):
+win % gain from fouling ranges from -17.5 pp to +6.3 pp.
 
 ---
 

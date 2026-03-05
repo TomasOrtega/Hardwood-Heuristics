@@ -95,7 +95,9 @@ def scrape(
         logger.info("Dry-run mode: loading only cached raw files from %s", raw_dir)
         parquet_files = sorted(raw_dir.glob("*.parquet"))
         if not parquet_files:
-            logger.warning("No cached raw files found in %s; nothing to parse.", raw_dir)
+            logger.warning(
+                "No cached raw files found in %s; nothing to parse.", raw_dir
+            )
             return processed_dir / "transitions.parquet"
         raw_df = pd.concat(
             [pd.read_parquet(p) for p in parquet_files], ignore_index=True
@@ -106,10 +108,14 @@ def scrape(
         raw_df = scraper.fetch_all()
 
     if raw_df.empty:
-        logger.warning("No raw play-by-play data available; transitions file not written.")
+        logger.warning(
+            "No raw play-by-play data available; transitions file not written."
+        )
         return processed_dir / "transitions.parquet"
 
-    logger.info("Parsing %d raw events into historical possession records…", len(raw_df))
+    logger.info(
+        "Parsing %d raw events into historical possession records…", len(raw_df)
+    )
     parser = PlayByPlayParser(processed_dir=processed_dir)
     transitions_df = parser.parse(raw_df)
 

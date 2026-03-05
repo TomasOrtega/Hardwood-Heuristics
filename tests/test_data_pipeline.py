@@ -50,8 +50,9 @@ class TestPeriodClockToSeconds:
 # ---------------------------------------------------------------------------
 class TestGameState:
     def test_as_tuple_round_trip(self):
-        gs = GameState(score_differential=3, seconds_remaining=45,
-                       possession=1, fouls_to_give=2)
+        gs = GameState(
+            score_differential=3, seconds_remaining=45, possession=1, fouls_to_give=2
+        )
         assert GameState.from_tuple(gs.as_tuple()) == gs
 
     def test_from_tuple(self):
@@ -121,12 +122,12 @@ def _make_raw_pbp(n: int = 20) -> pd.DataFrame:
     rng = np.random.default_rng(0)
     return pd.DataFrame(
         {
-            "GAME_ID":            ["0022300001"] * n,
-            "PERIOD":             [4] * n,
-            "PCTIMESTRING":       [f"PT00M{i:02d}.00S" for i in range(n, 0, -1)],
-            "EVENTMSGTYPE":       rng.choice([1, 2, 5, 6], size=n).tolist(),
-            "SCORE":              ["95 - 92"] * n,
-            "HOMEDESCRIPTION":    [""] * n,
+            "GAME_ID": ["0022300001"] * n,
+            "PERIOD": [4] * n,
+            "PCTIMESTRING": [f"PT00M{i:02d}.00S" for i in range(n, 0, -1)],
+            "EVENTMSGTYPE": rng.choice([1, 2, 5, 6], size=n).tolist(),
+            "SCORE": ["95 - 92"] * n,
+            "HOMEDESCRIPTION": [""] * n,
             "VISITORDESCRIPTION": [""] * n,
         }
     )
@@ -174,8 +175,14 @@ class TestPlayByPlayParser:
         result = parser.parse(raw)
         if not result.empty:
             required = {
-                "game_id", "season", "seconds_remaining", "score_differential",
-                "possession", "fouls_to_give", "action_taken", "game_outcome",
+                "game_id",
+                "season",
+                "seconds_remaining",
+                "score_differential",
+                "possession",
+                "fouls_to_give",
+                "action_taken",
+                "game_outcome",
             }
             assert required.issubset(set(result.columns))
 
@@ -200,8 +207,14 @@ class TestBuildSyntheticTransitions:
     def test_expected_columns(self):
         df = build_synthetic_transitions(n_samples=50)
         required = {
-            "game_id", "season", "seconds_remaining", "score_differential",
-            "possession", "fouls_to_give", "action_taken", "game_outcome",
+            "game_id",
+            "season",
+            "seconds_remaining",
+            "score_differential",
+            "possession",
+            "fouls_to_give",
+            "action_taken",
+            "game_outcome",
         }
         assert required.issubset(set(df.columns))
 

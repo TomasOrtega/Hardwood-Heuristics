@@ -25,22 +25,23 @@ matplotlib.use("Agg")
 logger = logging.getLogger(__name__)
 
 # Output file names
-CSV_FILENAME    = "theorem3_sweep.csv"
+CSV_FILENAME = "theorem3_sweep.csv"
 FIGURE_FILENAME = "timeout_ev_curve.svg"
-DOC_FILENAME    = "theorem3_timeout.md"
+DOC_FILENAME = "theorem3_timeout.md"
 
 # Default win rate used when a bucket has no historical observations
 _DEFAULT_WIN_RATE = 0.5
-_TIME_WINDOW_S    = 1
+_TIME_WINDOW_S = 1
 
 # Consistent aesthetics
-FIGURE_DPI  = 150
+FIGURE_DPI = 150
 FONT_FAMILY = "DejaVu Sans"
 
 
 # ---------------------------------------------------------------------------
 # Data collection
 # ---------------------------------------------------------------------------
+
 
 def collect(
     out_dir: Path,
@@ -50,7 +51,7 @@ def collect(
     Compute Theorem 3 (Late-Game Timeout) historical win rates and save to CSV.
 
     Filters the historical log for close games where the home team has
-    possession and is trailing by 1–3 points or tied, with 20–50 seconds
+    possession and is trailing by 1--3 points or tied, with 20--50 seconds
     remaining.  Groups possessions by whether the team called a timeout or
     played on, and saves ``theorem3_sweep.csv`` to *out_dir*.
 
@@ -68,54 +69,77 @@ def collect(
         processed_dir = out_dir
 
     from src.collect_data import _load_historical_log
+
     df = _load_historical_log(processed_dir)
     logger.info("Computing Theorem 3 (Late-Game Timeout) historical win rates…")
 
     rows: List[Dict] = []
 
     if not df.empty:
-        mask = (
-            (df["score_differential"].between(-3, 0))
-            & (df["possession"] == 1)
-        )
+        mask = (df["score_differential"].between(-3, 0)) & (df["possession"] == 1)
         close = df[mask]
     else:
         close = df
 
     for sec in range(20, 51, 2):
         if close.empty:
-            rows.append({
-                "seconds_remaining": sec,
-                "ev_timeout":        _DEFAULT_WIN_RATE,
-                "ev_play_on":        _DEFAULT_WIN_RATE,
-                "ev_gain":           0.0,
-                "timeout_is_optimal": False,
-            })
+            rows.append(
+                {
+                    "seconds_remaining": sec,
+                    "ev_timeout": _DEFAULT_WIN_RATE,
+                    "ev_play_on": _DEFAULT_WIN_RATE,
+                    "ev_gain": 0.0,
+                    "timeout_is_optimal": False,
+                }
+            )
             continue
 
         window = close[
-            close["seconds_remaining"].between(sec - _TIME_WINDOW_S, sec + _TIME_WINDOW_S)
+            close["seconds_remaining"].between(
+                sec - _TIME_WINDOW_S, sec + _TIME_WINDOW_S
+            )
         ]
-        timeout_outcomes = window.loc[window["action_taken"] == "timeout", "game_outcome"]
-        play_on_outcomes = window.loc[window["action_taken"] != "timeout", "game_outcome"]
+        timeout_outcomes = window.loc[
+            window["action_taken"] == "timeout", "game_outcome"
+        ]
+        play_on_outcomes = window.loc[
+            window["action_taken"] != "timeout", "game_outcome"
+        ]
 
-        ev_timeout = float(timeout_outcomes.mean()) if len(timeout_outcomes) > 0 else _DEFAULT_WIN_RATE
-        ev_play_on = float(play_on_outcomes.mean()) if len(play_on_outcomes) > 0 else _DEFAULT_WIN_RATE
-        ev_gain    = ev_timeout - ev_play_on
+        ev_timeout = (
+            float(timeout_outcomes.mean())
+            if len(timeout_outcomes) > 0
+            else _DEFAULT_WIN_RATE
+        )
+        ev_play_on = (
+            float(play_on_outcomes.mean())
+            if len(play_on_outcomes) > 0
+            else _DEFAULT_WIN_RATE
+        )
+        ev_gain = ev_timeout - ev_play_on
 
-        rows.append({
-            "seconds_remaining":  sec,
-            "ev_timeout":         round(ev_timeout, 4),
-            "ev_play_on":         round(ev_play_on, 4),
-            "ev_gain":            round(ev_gain,    4),
-            "timeout_is_optimal": ev_gain > 0,
-        })
+        rows.append(
+            {
+                "seconds_remaining": sec,
+                "ev_timeout": round(ev_timeout, 4),
+                "ev_play_on": round(ev_play_on, 4),
+                "ev_gain": round(ev_gain, 4),
+                "timeout_is_optimal": ev_gain > 0,
+            }
+        )
 
     out_path = out_dir / CSV_FILENAME
-    _write_csv(out_path, rows, fieldnames=[
-        "seconds_remaining", "ev_timeout", "ev_play_on",
-        "ev_gain", "timeout_is_optimal",
-    ])
+    _write_csv(
+        out_path,
+        rows,
+        fieldnames=[
+            "seconds_remaining",
+            "ev_timeout",
+            "ev_play_on",
+            "ev_gain",
+            "timeout_is_optimal",
+        ],
+    )
     logger.info("Saved Theorem 3 sweep to %s", out_path)
     return out_path
 
@@ -123,6 +147,7 @@ def collect(
 # ---------------------------------------------------------------------------
 # CSV helpers
 # ---------------------------------------------------------------------------
+
 
 def _write_csv(path: Path, rows: List[Dict], fieldnames: List[str]) -> None:
     with open(path, "w", newline="") as fh:
@@ -143,19 +168,23 @@ def load_sweep(processed_dir: Path) -> List[Dict]:
     with open(csv_path, newline="") as fh:
         reader = csv.DictReader(fh)
         for row in reader:
-            rows.append({
-                "seconds_remaining":  int(row["seconds_remaining"]),
-                "ev_timeout":         float(row["ev_timeout"]),
-                "ev_play_on":         float(row["ev_play_on"]),
-                "ev_gain":            float(row["ev_gain"]),
-                "timeout_is_optimal": row["timeout_is_optimal"].strip().lower() == "true",
-            })
+            rows.append(
+                {
+                    "seconds_remaining": int(row["seconds_remaining"]),
+                    "ev_timeout": float(row["ev_timeout"]),
+                    "ev_play_on": float(row["ev_play_on"]),
+                    "ev_gain": float(row["ev_gain"]),
+                    "timeout_is_optimal": row["timeout_is_optimal"].strip().lower()
+                    == "true",
+                }
+            )
     return rows
 
 
 # ---------------------------------------------------------------------------
 # Visualisation
 # ---------------------------------------------------------------------------
+
 
 def plot(
     processed_dir: Path,
@@ -166,9 +195,9 @@ def plot(
 
     The figure contains two panels:
 
-    * **Top panel** – absolute historical win percentage for the *Timeout* and
-      *Play On* strategies across 20–50 seconds remaining.
-    * **Bottom panel** – win-percentage gain from calling a timeout (positive
+    * **Top panel** -- absolute historical win percentage for the *Timeout* and
+      *Play On* strategies across 20--50 seconds remaining.
+    * **Bottom panel** -- win-percentage gain from calling a timeout (positive
       values favour the timeout; negative values favour playing on).
 
     Parameters
@@ -180,17 +209,23 @@ def plot(
     -------
     Path to the saved SVG file.
     """
-    sweep    = load_sweep(processed_dir)
+    sweep = load_sweep(processed_dir)
     out_path = images_dir / FIGURE_FILENAME
 
-    seconds    = [r["seconds_remaining"] for r in sweep]
-    ev_timeout = [r["ev_timeout"]        for r in sweep]
-    ev_play_on = [r["ev_play_on"]        for r in sweep]
-    ev_gain    = [r["ev_gain"]           for r in sweep]
+    seconds = [r["seconds_remaining"] for r in sweep]
+    ev_timeout = [r["ev_timeout"] for r in sweep]
+    ev_play_on = [r["ev_play_on"] for r in sweep]
+    ev_gain = [r["ev_gain"] for r in sweep]
 
-    plt.rcParams.update({"font.family": FONT_FAMILY, "axes.titlesize": 14,
-                         "axes.labelsize": 12, "xtick.labelsize": 10,
-                         "ytick.labelsize": 10})
+    plt.rcParams.update(
+        {
+            "font.family": FONT_FAMILY,
+            "axes.titlesize": 14,
+            "axes.labelsize": 12,
+            "xtick.labelsize": 10,
+            "ytick.labelsize": 10,
+        }
+    )
 
     fig, axes = plt.subplots(2, 1, figsize=(10, 8), sharex=True)
 
@@ -232,7 +267,10 @@ def plot(
     if crossover_seconds is not None:
         ax2.axvline(
             crossover_seconds,
-            color="black", linewidth=1.4, linestyle=":", alpha=0.7,
+            color="black",
+            linewidth=1.4,
+            linestyle=":",
+            alpha=0.7,
             label=f"Crossover ≈ {crossover_seconds}s",
         )
         ax2.legend(loc="upper right")
@@ -253,8 +291,8 @@ _TEMPLATE = """\
 
 ## Claim
 
-> **Based on NBA play-by-play data from 2019–2024, teams trailing by 1–3 points
-> (or tied) with possession and 20–50 seconds remaining do not consistently
+> **Based on NBA play-by-play data from 2019--2024, teams trailing by 1--3 points
+> (or tied) with possession and 20--50 seconds remaining do not consistently
 > gain a win-probability advantage by calling a timeout.**
 
 ---
@@ -287,7 +325,7 @@ each group across a sweep of time-remaining values.
 
 ### Historical Data Summary
 
-Data from 5 NBA seasons (2019–2024):
+Data from 5 NBA seasons (2019--2024):
 
 | Seconds | Timeout Win % | Play-On Win % | Win % Gain | Better Strategy |
 |---------|--------------|--------------|------------|----------------|
@@ -295,7 +333,7 @@ Data from 5 NBA seasons (2019–2024):
 | 30 s | {ev_timeout_30} | {ev_play_on_30} | {ev_gain_30} | {optimal_30} |
 | 20 s | {ev_timeout_20} | {ev_play_on_20} | {ev_gain_20} | {optimal_20} |
 
-> *Values are historical win percentages from NBA play-by-play data, 2019–2024.*
+> *Values are historical win percentages from NBA play-by-play data, 2019--2024.*
 
 ---
 
@@ -322,7 +360,8 @@ def generate_doc(
     Path to the written Markdown file.
     """
     from src.generate_docs import (
-        _fmt_ev, _gain_label,
+        _fmt_ev,
+        _gain_label,
         _find_sweep_entry,
         _build_theorem3_key_findings,
         _build_theorem3_conclusion,
@@ -338,7 +377,7 @@ def generate_doc(
         return "Timeout ✓" if gain > 0 else "Play On ✓"
 
     key_findings = _build_theorem3_key_findings(sweep)
-    conclusion   = _build_theorem3_conclusion(sweep)
+    conclusion = _build_theorem3_conclusion(sweep)
 
     content = _TEMPLATE.format(
         key_findings=key_findings,

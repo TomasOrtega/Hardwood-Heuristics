@@ -32,10 +32,10 @@ from src.generate_docs import (
     _generate_theorem3_doc,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_sweep(
     time_range: list[int] | None = None,
@@ -51,14 +51,14 @@ def _make_sweep(
         time_range = list(range(10, 65, 2))
     results = []
     for s in time_range:
-        rush   = 0.62 if s >= positive_from else 0.40
+        rush = 0.62 if s >= positive_from else 0.40
         normal = 0.55
         results.append(
             {
                 "seconds_remaining": s,
-                "ev_rush":   rush,
+                "ev_rush": rush,
                 "ev_normal": normal,
-                "ev_gain":   rush - normal,
+                "ev_gain": rush - normal,
             }
         )
     return results
@@ -67,7 +67,14 @@ def _make_sweep(
 def _write_theorem1_data(tmp_path: Path, sweep: list[dict]) -> None:
     """Write sweep list to theorem1_sweep.csv in tmp_path."""
     import csv as _csv
-    fieldnames = ["seconds_remaining", "ev_rush", "ev_normal", "ev_gain", "rush_is_optimal"]
+
+    fieldnames = [
+        "seconds_remaining",
+        "ev_rush",
+        "ev_normal",
+        "ev_gain",
+        "rush_is_optimal",
+    ]
     with open(tmp_path / "theorem1_sweep.csv", "w", newline="") as fh:
         writer = _csv.DictWriter(fh, fieldnames=fieldnames)
         writer.writeheader()
@@ -111,7 +118,14 @@ def _make_theorem3_sweep(
 def _write_theorem3_data(tmp_path: Path, sweep: list[dict]) -> None:
     """Write sweep list to theorem3_sweep.csv in tmp_path."""
     import csv as _csv
-    fieldnames = ["seconds_remaining", "ev_timeout", "ev_play_on", "ev_gain", "timeout_is_optimal"]
+
+    fieldnames = [
+        "seconds_remaining",
+        "ev_timeout",
+        "ev_play_on",
+        "ev_gain",
+        "timeout_is_optimal",
+    ]
     with open(tmp_path / "theorem3_sweep.csv", "w", newline="") as fh:
         writer = _csv.DictWriter(fh, fieldnames=fieldnames)
         writer.writeheader()
@@ -133,14 +147,17 @@ def _write_theorem2_data(
 
     n_t, n_f = len(time_values), len(fg3_values)
     # gain increases with fg3_pct; may be shifted by gain_offset
-    gain_grid    = np.array([[gain_offset + 0.05 + j * 0.01 for j in range(n_f)]
-                              for _ in range(n_t)])
-    wp_foul_grid    = np.full((n_t, n_f), 0.90)
+    gain_grid = np.array(
+        [[gain_offset + 0.05 + j * 0.01 for j in range(n_f)] for _ in range(n_t)]
+    )
+    wp_foul_grid = np.full((n_t, n_f), 0.90)
     wp_no_foul_grid = wp_foul_grid - gain_grid
 
-    np.savetxt(tmp_path / "theorem2_grid.csv",          gain_grid,    delimiter=",")
-    np.savetxt(tmp_path / "theorem2_wp_foul_grid.csv",    wp_foul_grid, delimiter=",")
-    np.savetxt(tmp_path / "theorem2_wp_no_foul_grid.csv", wp_no_foul_grid, delimiter=",")
+    np.savetxt(tmp_path / "theorem2_grid.csv", gain_grid, delimiter=",")
+    np.savetxt(tmp_path / "theorem2_wp_foul_grid.csv", wp_foul_grid, delimiter=",")
+    np.savetxt(
+        tmp_path / "theorem2_wp_no_foul_grid.csv", wp_no_foul_grid, delimiter=","
+    )
     with open(tmp_path / "theorem2_metadata.json", "w") as f:
         json.dump({"time_values": time_values, "fg3_pct_values": fg3_values}, f)
 
@@ -174,7 +191,9 @@ class TestFmtGain:
 
 class TestFindSweepEntry:
     def test_found(self):
-        sweep = [{"seconds_remaining": 32, "ev_rush": 0.6, "ev_normal": 0.5, "ev_gain": 0.1}]
+        sweep = [
+            {"seconds_remaining": 32, "ev_rush": 0.6, "ev_normal": 0.5, "ev_gain": 0.1}
+        ]
         entry = _find_sweep_entry(sweep, 32)
         assert entry["ev_gain"] == pytest.approx(0.1)
 
@@ -195,8 +214,8 @@ class TestConsecutivePositiveWindows:
         # manually add positive entries at 10-12s
         for entry in sweep:
             if entry["seconds_remaining"] <= 12:
-                entry["ev_rush"]  = 0.70
-                entry["ev_gain"]  = 0.15
+                entry["ev_rush"] = 0.70
+                entry["ev_gain"] = 0.15
         windows = _consecutive_positive_windows(sweep)
         assert len(windows) == 2
 
@@ -255,7 +274,9 @@ class TestBuildTheorem2KeyFindings:
 class TestBuildTheorem2Conclusion:
     def test_all_positive(self):
         gain_grid = np.full((3, 3), 0.07)
-        text = _build_theorem2_conclusion(gain_grid, [2, 4, 6], [0.28, 0.36, 0.44], 0.34)
+        text = _build_theorem2_conclusion(
+            gain_grid, [2, 4, 6], [0.28, 0.36, 0.44], 0.34
+        )
         assert "all analyzed" in text
 
     def test_some_negative(self):
@@ -325,6 +346,7 @@ class TestGenerateTheorem2Doc:
 
         # foul cost should appear in the -0.x to -2.x range (not hundreds)
         import re
+
         match = re.search(r"\\approx\s*(-?\d+\.\d+)\\text\{\\s*pp\}", content)
         if match:
             cost_val = float(match.group(1))
@@ -364,7 +386,11 @@ class TestBuildTheorem3KeyFindings:
     def test_all_negative_mentions_no_advantage(self):
         sweep = _make_theorem3_sweep()  # all slightly negative
         text = _build_theorem3_key_findings(sweep)
-        assert "does not" in text.lower() or "inconclusive" in text.lower() or "mixed" in text.lower()
+        assert (
+            "does not" in text.lower()
+            or "inconclusive" in text.lower()
+            or "mixed" in text.lower()
+        )
 
     def test_all_positive(self):
         sweep = _make_theorem3_sweep(timeout_better_from=20)  # all positive
@@ -386,7 +412,11 @@ class TestBuildTheorem3Conclusion:
     def test_all_positive(self):
         sweep = _make_theorem3_sweep(timeout_better_from=20)
         text = _build_theorem3_conclusion(sweep)
-        assert "favour" in text.lower() or "favours" in text.lower() or "beneficial" in text.lower()
+        assert (
+            "favour" in text.lower()
+            or "favours" in text.lower()
+            or "beneficial" in text.lower()
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -424,7 +454,9 @@ class TestGenerateTheorem3Doc:
         _write_theorem3_data(tmp_path, sweep)
         _generate_theorem3_doc(processed_dir=tmp_path, docs_dir=tmp_path)
         content = (tmp_path / "theorem3_timeout.md").read_text()
-        assert any(word in content.lower() for word in ["inconclusive", "mixed", "noise"])
+        assert any(
+            word in content.lower() for word in ["inconclusive", "mixed", "noise"]
+        )
 
 
 # ---------------------------------------------------------------------------

@@ -7,15 +7,15 @@ the chronological log into a flat historical possession log.
 
 Output columns
 --------------
-    game_id             : string  – unique game identifier
-    season              : string  – e.g. "2023-24"
-    seconds_remaining   : int     – seconds left in the period [0, 180]
-    score_differential  : int     – home minus away score (clipped to ±30)
-    possession          : int     – 0 = away team, 1 = home team
-    fouls_to_give       : int     – [0, 2]
-    action_taken        : string  – "shoot", "foul", "timeout", "turnover",
+    game_id             : string  -- unique game identifier
+    season              : string  -- e.g. "2023-24"
+    seconds_remaining   : int     -- seconds left in the period [0, 180]
+    score_differential  : int     -- home minus away score (clipped to ±30)
+    possession          : int     -- 0 = away team, 1 = home team
+    fouls_to_give       : int     -- [0, 2]
+    action_taken        : string  -- "shoot", "foul", "timeout", "turnover",
                                     "rebound", "free_throw", or "other"
-    game_outcome        : int     – 1 = home team won, 0 = away team won
+    game_outcome        : int     -- 1 = home team won, 0 = away team won
 """
 
 from __future__ import annotations
@@ -38,11 +38,11 @@ DATA_DIR = Path(__file__).parent.parent / "data"
 RAW_DIR = DATA_DIR / "raw"
 PROCESSED_DIR = DATA_DIR / "processed"
 
-FINAL_PERIOD_SECONDS = 180          # last 3 minutes of regulation / OT
-SCORE_DIFF_CLIP = 30                # clip extreme leads for analysis
+FINAL_PERIOD_SECONDS = 180  # last 3 minutes of regulation / OT
+SCORE_DIFF_CLIP = 30  # clip extreme leads for analysis
 MAX_FOULS_TO_GIVE = 2
 MAX_RETRIES = 5
-BACKOFF_BASE = 2.0                  # exponential back-off multiplier
+BACKOFF_BASE = 2.0  # exponential back-off multiplier
 
 
 # ---------------------------------------------------------------------------
@@ -52,10 +52,10 @@ BACKOFF_BASE = 2.0                  # exponential back-off multiplier
 class GameState:
     """Discrete state for a late-game possession."""
 
-    score_differential: int   # home − away, clipped to ±SCORE_DIFF_CLIP
-    seconds_remaining: int    # seconds left in the period [0, 180]
-    possession: int           # 0 = away team, 1 = home team
-    fouls_to_give: int        # [0, 2]
+    score_differential: int  # home − away, clipped to ±SCORE_DIFF_CLIP
+    seconds_remaining: int  # seconds left in the period [0, 180]
+    possession: int  # 0 = away team, 1 = home team
+    fouls_to_give: int  # [0, 2]
 
     def as_tuple(self) -> Tuple[int, int, int, int]:
         return (
@@ -81,7 +81,7 @@ def _retry_with_backoff(fn, *args, max_retries: int = MAX_RETRIES, **kwargs):
         except Exception as exc:
             if attempt == max_retries - 1:
                 raise
-            wait = BACKOFF_BASE ** attempt + 0.1 * attempt
+            wait = BACKOFF_BASE**attempt + 0.1 * attempt
             logger.warning(
                 "Attempt %d failed (%s). Retrying in %.1fs…", attempt + 1, exc, wait
             )
@@ -161,12 +161,12 @@ class NBAPlayByPlayScraper:
     # Column mapping from SQLite names to the uppercase names expected by
     # PlayByPlayParser
     _COLUMN_MAP: Dict[str, str] = {
-        "game_id":           "GAME_ID",
-        "period":            "PERIOD",
-        "pctimestring":      "PCTIMESTRING",
-        "eventmsgtype":      "EVENTMSGTYPE",
-        "score":             "SCORE",
-        "homedescription":   "HOMEDESCRIPTION",
+        "game_id": "GAME_ID",
+        "period": "PERIOD",
+        "pctimestring": "PCTIMESTRING",
+        "eventmsgtype": "EVENTMSGTYPE",
+        "score": "SCORE",
+        "homedescription": "HOMEDESCRIPTION",
         "visitordescription": "VISITORDESCRIPTION",
     }
 
@@ -251,9 +251,7 @@ class NBAPlayByPlayScraper:
         db_path = self._get_db_path()
 
         prefixes = [
-            self._SEASON_PREFIXES[s]
-            for s in self.seasons
-            if s in self._SEASON_PREFIXES
+            self._SEASON_PREFIXES[s] for s in self.seasons if s in self._SEASON_PREFIXES
         ]
         if not prefixes:
             logger.warning("No valid season prefixes found; returning empty DataFrame.")
@@ -369,8 +367,13 @@ class PlayByPlayParser:
             return pd.DataFrame()
 
         required_cols = {
-            "GAME_ID", "PERIOD", "PCTIMESTRING", "EVENTMSGTYPE",
-            "SCORE", "HOMEDESCRIPTION", "VISITORDESCRIPTION",
+            "GAME_ID",
+            "PERIOD",
+            "PCTIMESTRING",
+            "EVENTMSGTYPE",
+            "SCORE",
+            "HOMEDESCRIPTION",
+            "VISITORDESCRIPTION",
         }
         missing = required_cols - set(raw_df.columns)
         if missing:
@@ -382,7 +385,8 @@ class PlayByPlayParser:
 
         # Keep only final 3 minutes of 4th quarter or OT periods
         late_game = raw_df[
-            (raw_df["PERIOD"] >= 4) & (raw_df["seconds_remaining"] <= FINAL_PERIOD_SECONDS)
+            (raw_df["PERIOD"] >= 4)
+            & (raw_df["seconds_remaining"] <= FINAL_PERIOD_SECONDS)
         ].copy()
 
         if late_game.empty:
@@ -419,6 +423,7 @@ class PlayByPlayParser:
 
     def _add_score_columns(self, df: pd.DataFrame) -> pd.DataFrame:
         """Parse 'HHH - VVV' SCORE strings into home/away integers."""
+
         def parse_score(s):
             if pd.isna(s) or str(s).strip() == "":
                 return np.nan, np.nan
@@ -438,8 +443,10 @@ class PlayByPlayParser:
         df["home_score"] = df["home_score"].fillna(0)
         df["away_score"] = df["away_score"].fillna(0)
         df["score_differential"] = (
-            df["home_score"] - df["away_score"]
-        ).clip(-SCORE_DIFF_CLIP, SCORE_DIFF_CLIP).astype(int)
+            (df["home_score"] - df["away_score"])
+            .clip(-SCORE_DIFF_CLIP, SCORE_DIFF_CLIP)
+            .astype(int)
+        )
         return df
 
     def _compute_game_outcome(self, game_df: pd.DataFrame) -> int:
@@ -483,13 +490,13 @@ class PlayByPlayParser:
         """Map an event type to a strategic action label."""
         etype = int(row.get("EVENTMSGTYPE", 0))
         mapping = {
-            self._SHOT_MADE_TYPE:   "shoot",
+            self._SHOT_MADE_TYPE: "shoot",
             self._SHOT_MISSED_TYPE: "shoot",
-            self._FREE_THROW_TYPE:  "free_throw",
-            self._REBOUND_TYPE:     "rebound",
-            self._TURNOVER_TYPE:    "turnover",
-            self._FOUL_TYPE:        "foul",
-            self._TIMEOUT_TYPE:     "timeout",
+            self._FREE_THROW_TYPE: "free_throw",
+            self._REBOUND_TYPE: "rebound",
+            self._TURNOVER_TYPE: "turnover",
+            self._FOUL_TYPE: "foul",
+            self._TIMEOUT_TYPE: "timeout",
         }
         return mapping.get(etype, "other")
 
@@ -513,7 +520,9 @@ class PlayByPlayParser:
         possession = 1  # start with home team (simplification)
         fouls_to_give = 1
 
-        events = df.sort_values("seconds_remaining", ascending=False).reset_index(drop=True)
+        events = df.sort_values("seconds_remaining", ascending=False).reset_index(
+            drop=True
+        )
 
         for _, row in events.iterrows():
             sec = int(row["seconds_remaining"])
@@ -559,7 +568,16 @@ def build_synthetic_transitions(n_samples: int = 5000, seed: int = 42) -> pd.Dat
     possessions = rng.integers(0, 2, size=n)
     fouls = rng.integers(0, 3, size=n)
     actions = rng.choice(
-        ["shoot", "shoot", "free_throw", "rebound", "turnover", "foul", "timeout", "other"],
+        [
+            "shoot",
+            "shoot",
+            "free_throw",
+            "rebound",
+            "turnover",
+            "foul",
+            "timeout",
+            "other",
+        ],
         size=n,
         p=[0.22, 0.28, 0.15, 0.15, 0.08, 0.07, 0.03, 0.02],
     )
@@ -593,8 +611,8 @@ def compute_shooting_stats(transitions_df: pd.DataFrame) -> Dict[str, float]:
     Returns
     -------
     dict with keys:
-        ``shoot_rate`` – fraction of events that are shot attempts
-        ``foul_rate``  – fraction of events that are fouls
+        ``shoot_rate`` -- fraction of events that are shot attempts
+        ``foul_rate``  -- fraction of events that are fouls
     """
     if transitions_df.empty:
         return {}
@@ -604,7 +622,7 @@ def compute_shooting_stats(transitions_df: pd.DataFrame) -> Dict[str, float]:
     if total > 0:
         actions = transitions_df.get("action_taken", pd.Series(dtype=str))
         stats["shoot_rate"] = float((actions == "shoot").sum() / total)
-        stats["foul_rate"]  = float((actions == "foul").sum() / total)
+        stats["foul_rate"] = float((actions == "foul").sum() / total)
     return stats
 
 
@@ -625,5 +643,7 @@ def load_empirical_params(processed_dir: Path = PROCESSED_DIR) -> Dict[str, floa
         logger.info("Loaded empirical params from %s: %s", transitions_path, params)
         return params
     except Exception as exc:
-        logger.warning("Could not load empirical params from %s: %s", transitions_path, exc)
+        logger.warning(
+            "Could not load empirical params from %s: %s", transitions_path, exc
+        )
         return {}

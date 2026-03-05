@@ -58,7 +58,7 @@ class TestDefaultSeasons:
 
 
 # ---------------------------------------------------------------------------
-# scrape() – mocked
+# scrape() -- mocked
 # ---------------------------------------------------------------------------
 def _make_raw_pbp(n: int = 30) -> pd.DataFrame:
     """Minimal raw PBP DataFrame accepted by PlayByPlayParser."""
@@ -93,7 +93,9 @@ class TestScrape:
         mock_scraper = MagicMock()
         mock_scraper.fetch_all.return_value = raw_pbp
 
-        with patch("src.scrape_nba_data.NBAPlayByPlayScraper", return_value=mock_scraper):
+        with patch(
+            "src.scrape_nba_data.NBAPlayByPlayScraper", return_value=mock_scraper
+        ):
             result = scrape(
                 seasons=["2023-24"],
                 raw_dir=tmp_path / "raw",
@@ -109,7 +111,9 @@ class TestScrape:
         mock_scraper = MagicMock()
         mock_scraper.fetch_all.return_value = raw_pbp
 
-        with patch("src.scrape_nba_data.NBAPlayByPlayScraper", return_value=mock_scraper):
+        with patch(
+            "src.scrape_nba_data.NBAPlayByPlayScraper", return_value=mock_scraper
+        ):
             out = scrape(
                 seasons=["2023-24"],
                 raw_dir=tmp_path / "raw",
@@ -125,7 +129,9 @@ class TestScrape:
         mock_scraper = MagicMock()
         mock_scraper.fetch_all.return_value = pd.DataFrame()
 
-        with patch("src.scrape_nba_data.NBAPlayByPlayScraper", return_value=mock_scraper):
+        with patch(
+            "src.scrape_nba_data.NBAPlayByPlayScraper", return_value=mock_scraper
+        ):
             out = scrape(
                 seasons=["2023-24"],
                 raw_dir=tmp_path / "raw",

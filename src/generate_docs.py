@@ -26,13 +26,14 @@ import numpy as np
 
 logger = logging.getLogger(__name__)
 
-DOCS_DIR       = Path(__file__).parent.parent / "docs"
-PROCESSED_DIR  = Path(__file__).parent.parent / "data" / "processed"
+DOCS_DIR = Path(__file__).parent.parent / "docs"
+PROCESSED_DIR = Path(__file__).parent.parent / "data" / "processed"
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _fmt_ev(value: float) -> str:
     """Format a win-percentage value to 2 decimal places."""
@@ -48,7 +49,7 @@ def _fmt_gain(value: float, pp: bool = False) -> str:
 
 
 def _gain_label(value: float) -> str:
-    """Format a raw win-probability gain (0–1 scale) with bold for positive values."""
+    """Format a raw win-probability gain (0--1 scale) with bold for positive values."""
     if value > 0:
         return f"**+{value:.2f}**"
     return f"{value:.2f}"
@@ -104,7 +105,7 @@ _THEOREM1_TEMPLATE = """\
 
 ## Claim
 
-> **Based on NBA play-by-play data from 2019–2024, teams that rush a shot
+> **Based on NBA play-by-play data from 2019--2024, teams that rush a shot
 > to secure two possessions before time expires sometimes win at a higher
 > historical rate — but there is no sharp, reliable clock threshold where
 > this advantage switches on.**
@@ -134,7 +135,7 @@ of games where the home team went on to win given that choice.
 
 ### Historical Data Summary
 
-Data from 5 NBA seasons (2019–2024):
+Data from 5 NBA seasons (2019--2024):
 
 | Scenario | Rush Win % | Hold Win % | Win % Gain | Better Strategy |
 |----------|-----------|-----------|------------|----------------|
@@ -142,7 +143,7 @@ Data from 5 NBA seasons (2019–2024):
 | 40 s, tied | {ev_rush_40} | {ev_normal_40} | {ev_gain_40} | {optimal_40} |
 | 20 s, tied | {ev_rush_20} | {ev_normal_20} | {ev_gain_20} | {optimal_20} |
 
-> *Values are historical win percentages from NBA play-by-play data, 2019–2024.*
+> *Values are historical win percentages from NBA play-by-play data, 2019--2024.*
 
 ---
 
@@ -179,11 +180,15 @@ def _build_theorem1_key_findings(sweep: List[Dict]) -> str:
 
     if window_covers_full_range:
         max_gain_entry = max(sorted_sweep, key=lambda e: e["ev_gain"])
-        classic_entries = [e for e in sorted_sweep if 28 <= e["seconds_remaining"] <= 34]
+        classic_entries = [
+            e for e in sorted_sweep if 28 <= e["seconds_remaining"] <= 34
+        ]
         if classic_entries:
-            avg_gain_classic = sum(e["ev_gain"] for e in classic_entries) / len(classic_entries)
+            avg_gain_classic = sum(e["ev_gain"] for e in classic_entries) / len(
+                classic_entries
+            )
             lines.append(
-                f"1. **Classic 2-for-1 window (~28–34 s): modest positive signal.**"
+                f"1. **Classic 2-for-1 window (~28--34 s): modest positive signal.**"
                 f" Average win % gain ≈ +{avg_gain_classic:.2f} — rushing secures "
                 "two possessions against the opponent's one, but the margin is small."
             )
@@ -198,7 +203,7 @@ def _build_theorem1_key_findings(sweep: List[Dict]) -> str:
         )
     else:
         lines.append(
-            f"1. **Rushing appears beneficial roughly in the ~{main_window[0]}–{main_window[1]} s window** "
+            f"1. **Rushing appears beneficial roughly in the ~{main_window[0]}--{main_window[1]} s window** "
             "based on historical data, but the boundary is not sharp — adjacent time "
             "buckets often flip sign due to sample noise."
         )
@@ -240,6 +245,7 @@ def _generate_theorem1_doc(
 ) -> Path:
     """Load Theorem 1 sweep data and write the theorem1 Markdown file."""
     from src.theorems.theorem1 import load_sweep
+
     sweep: List[Dict] = load_sweep(processed_dir)
 
     e32 = _find_sweep_entry(sweep, 32)
@@ -267,7 +273,7 @@ def _generate_theorem1_doc(
     elif window_covers_full_range:
         conclusion = (
             f"**The historical data shows a modest rush advantage across the full analyzed range "
-            f"({sweep_min}–{sweep_max} s)**, but the gain is small and the threshold is not sharp. "
+            f"({sweep_min}--{sweep_max} s)**, but the gain is small and the threshold is not sharp. "
             "Shooting immediately is historically at least as good as holding, but "
             "the margin is narrow enough that shot quality matters more than the exact clock value. "
             "Coaches should push the pace when a good shot is available, not sacrifice "
@@ -281,10 +287,11 @@ def _generate_theorem1_doc(
         ]
         caution = (
             f" Rushing at {above_neg[0]}+ seconds can reduce win probability."
-            if above_neg else ""
+            if above_neg
+            else ""
         )
         conclusion = (
-            f"**The 2-for-1 shows a positive signal in roughly the {window_low}–{window_high} s range**, "
+            f"**The 2-for-1 shows a positive signal in roughly the {window_low}--{window_high} s range**, "
             "but there is no sharp, reliable threshold — individual second-by-second results "
             f"are noisy.{caution} "
             "Use this as a directional guide: favour rushing when a good shot is available "
@@ -328,7 +335,7 @@ _THEOREM2_TEMPLATE = """\
 
 ## Claim
 
-> **Based on NBA play-by-play data from 2019–2024, teams leading by 3 points
+> **Based on NBA play-by-play data from 2019--2024, teams leading by 3 points
 > with fewer than 12 seconds remaining generally win more often when they
 > intentionally foul — especially against good three-point shooters.**
 
@@ -360,7 +367,7 @@ red = normal defence better) across time remaining and opponent 3PT%.
 
 ### Historical Data Summary
 
-Data from 5 NBA seasons (2019–2024):
+Data from 5 NBA seasons (2019--2024):
 
 | Seconds | Opp 3PT% | Foul Win % | No-Foul Win % | Win % Gain |
 |---------|----------|-----------|---------------|------------|
@@ -369,7 +376,7 @@ Data from 5 NBA seasons (2019–2024):
 | 8 s | 44 % | {wp_foul_8_44} | {wp_no_foul_8_44} | {wp_gain_8_44} |
 | 4 s | 36 % | {wp_foul_4_36} | {wp_no_foul_4_36} | {wp_gain_4_36} |
 
-> *Values are historical win percentages from NBA play-by-play data, 2019–2024.*
+> *Values are historical win percentages from NBA play-by-play data, 2019--2024.*
 
 ---
 
@@ -378,7 +385,7 @@ Data from 5 NBA seasons (2019–2024):
 The key driver is the **opponent's 3PT%** — a higher shooting rate makes
 allowing a three-point attempt more costly.
 
-Analyzed range ({fg3_min:.0%}–{fg3_max:.0%} opponent 3PT%):
+Analyzed range ({fg3_min:.0%}--{fg3_max:.0%} opponent 3PT%):
 win % gain from fouling ranges from {min_gain_pp:.1f} pp to +{max_gain_pp:.1f} pp.
 
 ---
@@ -420,7 +427,7 @@ def _build_theorem2_key_findings(
         if abs(min_time_gain_pp - max_time_gain_pp) < 1.0:
             finding3 = (
                 f"3. **The benefit is remarkably stable across all time values** "
-                f"({min_time}–{max_time} s):\n"
+                f"({min_time}--{max_time} s):\n"
                 f"   average historical win % gain at {min_time} s is "
                 f"+{min_time_gain_pp:.1f} pp vs. +{max_time_gain_pp:.1f} pp at {max_time} s —\n"
                 "   fouling is advisable regardless of exactly how many seconds remain."
@@ -442,8 +449,8 @@ def _build_theorem2_key_findings(
 
         return (
             f"1. **Fouling is beneficial across all analyzed scenarios** "
-            f"({min(time_values)}–{max(time_values)} seconds remaining, "
-            f"opponent 3PT% {min(fg3_values):.0%}–{max(fg3_values):.0%}). "
+            f"({min(time_values)}--{max(time_values)} seconds remaining, "
+            f"opponent 3PT% {min(fg3_values):.0%}--{max(fg3_values):.0%}). "
             f"The historical win % gain ranges from **+{min_gain_pp:.1f} pp** to "
             f"**+{max_gain_pp:.1f} pp**.\n\n"
             f"2. **The advantage of fouling grows with the opponent's 3PT%.** "
@@ -455,18 +462,20 @@ def _build_theorem2_key_findings(
         )
 
     positive_fg3 = [
-        fg3_values[j] for j in range(len(fg3_values))
+        fg3_values[j]
+        for j in range(len(fg3_values))
         if any(gain_grid[i, j] > 0 for i in range(len(time_values)))
     ]
     negative_fg3 = [
-        fg3_values[j] for j in range(len(fg3_values))
+        fg3_values[j]
+        for j in range(len(fg3_values))
         if all(gain_grid[i, j] <= 0 for i in range(len(time_values)))
     ]
     high_threshold = min(positive_fg3) if positive_fg3 else fg3_values[0]
-    low_threshold  = max(negative_fg3) if negative_fg3 else fg3_values[-1]
+    low_threshold = max(negative_fg3) if negative_fg3 else fg3_values[-1]
 
     return (
-        f"1. **Fouling is most beneficial with 4–8 seconds remaining and a high-percentage\n"
+        f"1. **Fouling is most beneficial with 4--8 seconds remaining and a high-percentage\n"
         f"   3PT shooter (≥ {high_threshold:.0%}).** The heatmap shows the largest positive values in this\n"
         "   region.\n\n"
         f"2. **Against average-to-below-average 3PT shooters (≤ {low_threshold:.0%}), normal defense is\n"
@@ -489,8 +498,8 @@ def _build_theorem2_conclusion(
     if not has_negative:
         return (
             "**Fouling up 3 is historically justified across all analyzed game situations** "
-            f"({min(time_values)}–{max(time_values)} seconds remaining, "
-            f"opponent 3PT% {min(fg3_values):.0%}–{max(fg3_values):.0%}). "
+            f"({min(time_values)}--{max(time_values)} seconds remaining, "
+            f"opponent 3PT% {min(fg3_values):.0%}--{max(fg3_values):.0%}). "
             "The strategy is especially powerful against elite shooters. "
             "The key insight is that the decision is *opponent-specific*: "
             "the higher the opponent's 3PT shooting rate, the larger the historical "
@@ -501,7 +510,7 @@ def _build_theorem2_conclusion(
         f"(>=4 s remaining, opponent 3PT% >= {threshold_low:.0%}).** The strategy is especially powerful\n"
         "against elite shooters. Against poor 3PT teams, the conventional approach of\n"
         "playing normal defense remains competitive. The key insight is that the decision\n"
-        "is *opponent-specific*: a blanket \"always foul\" or \"never foul\" rule is\n"
+        'is *opponent-specific*: a blanket "always foul" or "never foul" rule is\n'
         "suboptimal — coaches should adjust based on who has the ball."
     )
 
@@ -511,10 +520,10 @@ def _generate_theorem2_doc(
     docs_dir: Path = DOCS_DIR,
 ) -> Path:
     """Load Theorem 2 sweep data and write the theorem2 Markdown file."""
-    grid_path    = processed_dir / "theorem2_grid.csv"
-    foul_path    = processed_dir / "theorem2_wp_foul_grid.csv"
+    grid_path = processed_dir / "theorem2_grid.csv"
+    foul_path = processed_dir / "theorem2_wp_foul_grid.csv"
     no_foul_path = processed_dir / "theorem2_wp_no_foul_grid.csv"
-    meta_path    = processed_dir / "theorem2_metadata.json"
+    meta_path = processed_dir / "theorem2_metadata.json"
 
     for p in (grid_path, meta_path):
         if not p.exists():
@@ -526,13 +535,13 @@ def _generate_theorem2_doc(
     with open(meta_path) as f:
         meta = json.load(f)
 
-    time_values: List[int]   = meta["time_values"]
-    fg3_values: List[float]  = meta["fg3_pct_values"]
+    time_values: List[int] = meta["time_values"]
+    fg3_values: List[float] = meta["fg3_pct_values"]
 
     gain_grid = np.loadtxt(grid_path, delimiter=",")
 
     if foul_path.exists() and no_foul_path.exists():
-        wp_foul_grid    = np.loadtxt(foul_path, delimiter=",")
+        wp_foul_grid = np.loadtxt(foul_path, delimiter=",")
         wp_no_foul_grid = np.loadtxt(no_foul_path, delimiter=",")
     else:
         logger.warning(
@@ -540,7 +549,7 @@ def _generate_theorem2_doc(
             "Re-run `python -m src.collect_data` to cache them."
         )
         # Reconstruct approximate values: assume a neutral default for wp_foul
-        wp_foul_grid    = np.full_like(gain_grid, 0.5)
+        wp_foul_grid = np.full_like(gain_grid, 0.5)
         wp_no_foul_grid = wp_foul_grid - gain_grid
 
     def _cell(grids: tuple, sec: int, fg3: float) -> tuple[float, float, float]:
@@ -563,7 +572,9 @@ def _generate_theorem2_doc(
     threshold_low = max(0.0, threshold - 0.01)
 
     key_findings = _build_theorem2_key_findings(gain_grid, time_values, fg3_values)
-    conclusion   = _build_theorem2_conclusion(gain_grid, time_values, fg3_values, threshold_low)
+    conclusion = _build_theorem2_conclusion(
+        gain_grid, time_values, fg3_values, threshold_low
+    )
 
     content = _THEOREM2_TEMPLATE.format(
         fg3_min=min(fg3_values),
@@ -601,8 +612,8 @@ _THEOREM3_TEMPLATE = """\
 
 ## Claim
 
-> **Based on NBA play-by-play data from 2019–2024, teams trailing by 1–3 points
-> (or tied) with possession and 20–50 seconds remaining do not consistently
+> **Based on NBA play-by-play data from 2019--2024, teams trailing by 1--3 points
+> (or tied) with possession and 20--50 seconds remaining do not consistently
 > gain a win-probability advantage by calling a timeout.**
 
 ---
@@ -635,7 +646,7 @@ each group across a sweep of time-remaining values.
 
 ### Historical Data Summary
 
-Data from 5 NBA seasons (2019–2024):
+Data from 5 NBA seasons (2019--2024):
 
 | Seconds | Timeout Win % | Play-On Win % | Win % Gain | Better Strategy |
 |---------|--------------|--------------|------------|----------------|
@@ -643,7 +654,7 @@ Data from 5 NBA seasons (2019–2024):
 | 30 s | {ev_timeout_30} | {ev_play_on_30} | {ev_gain_30} | {optimal_30} |
 | 20 s | {ev_timeout_20} | {ev_play_on_20} | {ev_gain_20} | {optimal_20} |
 
-> *Values are historical win percentages from NBA play-by-play data, 2019–2024.*
+> *Values are historical win percentages from NBA play-by-play data, 2019--2024.*
 
 ---
 
@@ -680,7 +691,7 @@ def _build_theorem3_key_findings(sweep: List[Dict]) -> str:
     if positive_count == total:
         return (
             f"1. **Calling a timeout is historically beneficial across all analyzed "
-            f"windows** ({sorted_sweep[0]['seconds_remaining']}–"
+            f"windows** ({sorted_sweep[0]['seconds_remaining']}--"
             f"{sorted_sweep[-1]['seconds_remaining']} s). "
             f"The average win % gain is **+{mean_gain * 100:.1f} pp**.\n\n"
             f"2. **The advantage peaks around {max_entry['seconds_remaining']} s** "
@@ -698,9 +709,9 @@ def _build_theorem3_key_findings(sweep: List[Dict]) -> str:
     return (
         f"1. **Results are mixed**: a timeout historically helps at "
         f"{len(positive_secs)} of {total} time buckets "
-        f"({min(positive_secs)}–{max(positive_secs)} s) "
+        f"({min(positive_secs)}--{max(positive_secs)} s) "
         f"but hurts at {len(negative_secs)} others "
-        f"({min(negative_secs)}–{max(negative_secs)} s).\n\n"
+        f"({min(negative_secs)}--{max(negative_secs)} s).\n\n"
         f"2. **The largest timeout advantage** occurs around "
         f"~{max_entry['seconds_remaining']} s "
         f"(+{max_entry['ev_gain'] * 100:.1f} pp). "
@@ -723,7 +734,7 @@ def _build_theorem3_conclusion(sweep: List[Dict]) -> str:
     if positive_count == 0:
         return (
             "**The historical data does not support a systematic timeout advantage** "
-            "when trailing in the final 20–50 seconds. Playing on is at least as good "
+            "when trailing in the final 20--50 seconds. Playing on is at least as good "
             "as stopping the clock across all analyzed situations. Coaches should "
             "prioritize player execution and matchup considerations over the timeout "
             "decision itself."
@@ -731,13 +742,13 @@ def _build_theorem3_conclusion(sweep: List[Dict]) -> str:
     if positive_count == total:
         return (
             f"**The historical data favours calling a timeout** when trailing with "
-            f"20–50 seconds remaining (average win % gain: +{mean_gain_pp:.1f} pp). "
+            f"20--50 seconds remaining (average win % gain: +{mean_gain_pp:.1f} pp). "
             "Setting up the final possession appears to be beneficial — coaches "
             "should use available timeouts to organise their offence in this window."
         )
     return (
         "**The historical data is inconclusive**: a timeout does not consistently "
-        "help or hurt across the analyzed 20–50 second window. "
+        "help or hurt across the analyzed 20--50 second window. "
         f"On average the gain is {mean_gain_pp:+.1f} pp — essentially noise. "
         "Coaches should base the timeout decision on matchup specifics and player "
         "fatigue rather than treating it as a universal rule."
@@ -750,6 +761,7 @@ def _generate_theorem3_doc(
 ) -> Path:
     """Load Theorem 3 sweep data and write the theorem3 Markdown file."""
     from src.theorems.theorem3 import load_sweep
+
     sweep: List[Dict] = load_sweep(processed_dir)
 
     def _find(sec: int) -> Dict:
@@ -802,6 +814,7 @@ _DOC_GENERATORS: Dict = {
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
+
 
 def generate_all_docs(
     processed_dir: Path = PROCESSED_DIR,

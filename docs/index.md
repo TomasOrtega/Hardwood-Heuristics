@@ -9,7 +9,7 @@ minutes of NBA games to *quantitatively* test common basketball strategies coach
 and analysts have debated for decades.
 We call each one of these strategies a "theorem" — a statement about the optimal strategic choice in a given game situation.
 
-We use five seasons of NBA play-by-play data (2019–24) and to compute actual historical win percentages for each strategic choice.
+We use five seasons of NBA play-by-play data (2019--24) and to compute actual historical win percentages for each strategic choice.
 
 Conclusions are based strictly on what *actually happened* in real games.
 

@@ -20,12 +20,12 @@ Adding a new theorem
 
 Saved artefacts (written to ``data/processed/``)
 -------------------------------------------------
-* ``theorem1_sweep.csv``           – Historical win-rate sweep for Theorem 1 (2-for-1).
-* ``theorem2_grid.csv``            – Win-rate-gain grid for Theorem 2 (Foul-Up-3).
-* ``theorem2_wp_foul_grid.csv``    – Historical win rate when fouling (per cell).
-* ``theorem2_wp_no_foul_grid.csv`` – Historical win rate without fouling (per cell).
-* ``theorem2_metadata.json``       – Parameter labels (time_values, fg3_pct_values).
-* ``theorem3_sweep.csv``           – Historical win-rate sweep for Theorem 3 (Late-Game Timeout).
+* ``theorem1_sweep.csv``           -- Historical win-rate sweep for Theorem 1 (2-for-1).
+* ``theorem2_grid.csv``            -- Win-rate-gain grid for Theorem 2 (Foul-Up-3).
+* ``theorem2_wp_foul_grid.csv``    -- Historical win rate when fouling (per cell).
+* ``theorem2_wp_no_foul_grid.csv`` -- Historical win rate without fouling (per cell).
+* ``theorem2_metadata.json``       -- Parameter labels (time_values, fg3_pct_values).
+* ``theorem3_sweep.csv``           -- Historical win-rate sweep for Theorem 3 (Late-Game Timeout).
 """
 
 from __future__ import annotations
@@ -66,12 +66,14 @@ def _load_historical_log(processed_dir: Path) -> pd.DataFrame:
         transitions_path,
     )
     from src.data_pipeline import build_synthetic_transitions
+
     return build_synthetic_transitions()
 
 
 # ---------------------------------------------------------------------------
 # Per-theorem collection functions (delegate to theorem modules)
 # ---------------------------------------------------------------------------
+
 
 def _collect_theorem1(
     out_dir: Path,
@@ -83,6 +85,7 @@ def _collect_theorem1(
     Delegates to :func:`src.theorems.theorem1.collect`.
     """
     from src.theorems.theorem1 import collect
+
     return collect(out_dir, processed_dir)
 
 
@@ -96,6 +99,7 @@ def _collect_theorem2(
     Delegates to :func:`src.theorems.theorem2.collect`.
     """
     from src.theorems.theorem2 import collect
+
     return collect(out_dir, processed_dir)
 
 
@@ -109,11 +113,12 @@ def _collect_theorem3(
     Delegates to :func:`src.theorems.theorem3.collect`.
     """
     from src.theorems.theorem3 import collect
+
     return collect(out_dir, processed_dir)
 
 
 # ---------------------------------------------------------------------------
-# Registry – maps theorem key to collection function.
+# Registry -- maps theorem key to collection function.
 # Add new theorems here; each function must accept (out_dir, processed_dir).
 # ---------------------------------------------------------------------------
 _COLLECTORS: Dict[str, Callable[..., Any]] = {
@@ -157,6 +162,7 @@ def collect_all(out_dir: Path = PROCESSED_DIR) -> None:
     logger.info("All data collected and saved to %s", out_dir)
 
     from src.generate_docs import generate_all_docs
+
     generate_all_docs(processed_dir=out_dir)
     logger.info("Theorem documentation regenerated from analysis results.")
 
@@ -164,4 +170,6 @@ def collect_all(out_dir: Path = PROCESSED_DIR) -> None:
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     collect_all()
-    print("Data collection complete. Run `python -m src.visualizations` to generate plots.")
+    print(
+        "Data collection complete. Run `python -m src.visualizations` to generate plots."
+    )

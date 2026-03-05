@@ -25,22 +25,23 @@ matplotlib.use("Agg")
 logger = logging.getLogger(__name__)
 
 # Output file names
-CSV_FILENAME  = "theorem1_sweep.csv"
+CSV_FILENAME = "theorem1_sweep.csv"
 FIGURE_FILENAME = "two_for_one_ev_curve.svg"
-DOC_FILENAME  = "theorem1_two_for_one.md"
+DOC_FILENAME = "theorem1_two_for_one.md"
 
 # Default win rate used when a bucket has no historical observations
 _DEFAULT_WIN_RATE = 0.5
-_TIME_WINDOW_S    = 1
+_TIME_WINDOW_S = 1
 
 # Consistent aesthetics
-FIGURE_DPI  = 150
+FIGURE_DPI = 150
 FONT_FAMILY = "DejaVu Sans"
 
 
 # ---------------------------------------------------------------------------
 # Data collection
 # ---------------------------------------------------------------------------
+
 
 def collect(
     out_dir: Path,
@@ -67,6 +68,7 @@ def collect(
         processed_dir = out_dir
 
     from src.collect_data import _load_historical_log
+
     df = _load_historical_log(processed_dir)
     logger.info("Computing Theorem 1 (2-for-1) historical win rates…")
 
@@ -75,36 +77,55 @@ def collect(
 
     for sec in range(10, 65, 2):
         if tied.empty:
-            rows.append({
-                "seconds_remaining": sec,
-                "ev_rush":           _DEFAULT_WIN_RATE,
-                "ev_normal":         _DEFAULT_WIN_RATE,
-                "ev_gain":           0.0,
-                "rush_is_optimal":   False,
-            })
+            rows.append(
+                {
+                    "seconds_remaining": sec,
+                    "ev_rush": _DEFAULT_WIN_RATE,
+                    "ev_normal": _DEFAULT_WIN_RATE,
+                    "ev_gain": 0.0,
+                    "rush_is_optimal": False,
+                }
+            )
             continue
 
         window = tied[
-            tied["seconds_remaining"].between(sec - _TIME_WINDOW_S, sec + _TIME_WINDOW_S)
+            tied["seconds_remaining"].between(
+                sec - _TIME_WINDOW_S, sec + _TIME_WINDOW_S
+            )
         ]
         rush_outcomes = window.loc[window["action_taken"] == "shoot", "game_outcome"]
         hold_outcomes = window.loc[window["action_taken"] != "shoot", "game_outcome"]
 
-        ev_rush   = float(rush_outcomes.mean()) if len(rush_outcomes) > 0 else _DEFAULT_WIN_RATE
-        ev_normal = float(hold_outcomes.mean()) if len(hold_outcomes) > 0 else _DEFAULT_WIN_RATE
-        ev_gain   = ev_rush - ev_normal
+        ev_rush = (
+            float(rush_outcomes.mean()) if len(rush_outcomes) > 0 else _DEFAULT_WIN_RATE
+        )
+        ev_normal = (
+            float(hold_outcomes.mean()) if len(hold_outcomes) > 0 else _DEFAULT_WIN_RATE
+        )
+        ev_gain = ev_rush - ev_normal
 
-        rows.append({
-            "seconds_remaining": sec,
-            "ev_rush":           round(ev_rush,   4),
-            "ev_normal":         round(ev_normal, 4),
-            "ev_gain":           round(ev_gain,   4),
-            "rush_is_optimal":   ev_gain > 0,
-        })
+        rows.append(
+            {
+                "seconds_remaining": sec,
+                "ev_rush": round(ev_rush, 4),
+                "ev_normal": round(ev_normal, 4),
+                "ev_gain": round(ev_gain, 4),
+                "rush_is_optimal": ev_gain > 0,
+            }
+        )
 
     out_path = out_dir / CSV_FILENAME
-    _write_csv(out_path, rows, fieldnames=["seconds_remaining", "ev_rush", "ev_normal",
-                                           "ev_gain", "rush_is_optimal"])
+    _write_csv(
+        out_path,
+        rows,
+        fieldnames=[
+            "seconds_remaining",
+            "ev_rush",
+            "ev_normal",
+            "ev_gain",
+            "rush_is_optimal",
+        ],
+    )
     logger.info("Saved Theorem 1 sweep to %s", out_path)
     return out_path
 
@@ -112,6 +133,7 @@ def collect(
 # ---------------------------------------------------------------------------
 # CSV helpers
 # ---------------------------------------------------------------------------
+
 
 def _write_csv(path: Path, rows: List[Dict], fieldnames: List[str]) -> None:
     with open(path, "w", newline="") as fh:
@@ -132,19 +154,22 @@ def load_sweep(processed_dir: Path) -> List[Dict]:
     with open(csv_path, newline="") as fh:
         reader = csv.DictReader(fh)
         for row in reader:
-            rows.append({
-                "seconds_remaining": int(row["seconds_remaining"]),
-                "ev_rush":           float(row["ev_rush"]),
-                "ev_normal":         float(row["ev_normal"]),
-                "ev_gain":           float(row["ev_gain"]),
-                "rush_is_optimal":   row["rush_is_optimal"].strip().lower() == "true",
-            })
+            rows.append(
+                {
+                    "seconds_remaining": int(row["seconds_remaining"]),
+                    "ev_rush": float(row["ev_rush"]),
+                    "ev_normal": float(row["ev_normal"]),
+                    "ev_gain": float(row["ev_gain"]),
+                    "rush_is_optimal": row["rush_is_optimal"].strip().lower() == "true",
+                }
+            )
     return rows
 
 
 # ---------------------------------------------------------------------------
 # Visualisation
 # ---------------------------------------------------------------------------
+
 
 def plot(
     processed_dir: Path,
@@ -165,20 +190,32 @@ def plot(
     sweep = load_sweep(processed_dir)
     out_path = images_dir / FIGURE_FILENAME
 
-    seconds   = [r["seconds_remaining"] for r in sweep]
-    ev_rush   = [r["ev_rush"]           for r in sweep]
-    ev_normal = [r["ev_normal"]         for r in sweep]
-    ev_gain   = [r["ev_gain"]           for r in sweep]
+    seconds = [r["seconds_remaining"] for r in sweep]
+    ev_rush = [r["ev_rush"] for r in sweep]
+    ev_normal = [r["ev_normal"] for r in sweep]
+    ev_gain = [r["ev_gain"] for r in sweep]
 
-    plt.rcParams.update({"font.family": FONT_FAMILY, "axes.titlesize": 14,
-                         "axes.labelsize": 12, "xtick.labelsize": 10,
-                         "ytick.labelsize": 10})
+    plt.rcParams.update(
+        {
+            "font.family": FONT_FAMILY,
+            "axes.titlesize": 14,
+            "axes.labelsize": 12,
+            "xtick.labelsize": 10,
+            "ytick.labelsize": 10,
+        }
+    )
 
     fig, axes = plt.subplots(2, 1, figsize=(10, 8), sharex=True)
 
     ax1 = axes[0]
-    ax1.plot(seconds, ev_rush,   color="#E63946", linewidth=2.2, label="Rush (shoot now)")
-    ax1.plot(seconds, ev_normal, color="#457B9D", linewidth=2.2, label="Normal (full possession)")
+    ax1.plot(seconds, ev_rush, color="#E63946", linewidth=2.2, label="Rush (shoot now)")
+    ax1.plot(
+        seconds,
+        ev_normal,
+        color="#457B9D",
+        linewidth=2.2,
+        label="Normal (full possession)",
+    )
     ax1.axhline(0, color="black", linewidth=0.8, linestyle="--", alpha=0.5)
     ax1.set_ylabel("Historical Win Percentage")
     ax1.set_title(
@@ -209,8 +246,14 @@ def plot(
             break
 
     if crossover_seconds is not None:
-        ax2.axvline(crossover_seconds, color="black", linewidth=1.4, linestyle=":",
-                    alpha=0.7, label=f"Crossover ≈ {crossover_seconds}s")
+        ax2.axvline(
+            crossover_seconds,
+            color="black",
+            linewidth=1.4,
+            linestyle=":",
+            alpha=0.7,
+            label=f"Crossover ≈ {crossover_seconds}s",
+        )
         ax2.legend(loc="upper right")
 
     plt.tight_layout()
@@ -229,7 +272,7 @@ _TEMPLATE = """\
 
 ## Claim
 
-> **Based on NBA play-by-play data from 2019–2024, teams that rush a shot
+> **Based on NBA play-by-play data from 2019--2024, teams that rush a shot
 > to secure two possessions before time expires sometimes win at a higher
 > historical rate — but there is no sharp, reliable clock threshold where
 > this advantage switches on.**
@@ -259,7 +302,7 @@ of games where the home team went on to win given that choice.
 
 ### Historical Data Summary
 
-Data from 5 NBA seasons (2019–2024):
+Data from 5 NBA seasons (2019--2024):
 
 | Scenario | Rush Win % | Hold Win % | Win % Gain | Better Strategy |
 |----------|-----------|-----------|------------|----------------|
@@ -267,7 +310,7 @@ Data from 5 NBA seasons (2019–2024):
 | 40 s, tied | {ev_rush_40} | {ev_normal_40} | {ev_gain_40} | {optimal_40} |
 | 20 s, tied | {ev_rush_20} | {ev_normal_20} | {ev_gain_20} | {optimal_20} |
 
-> *Values are historical win percentages from NBA play-by-play data, 2019–2024.*
+> *Values are historical win percentages from NBA play-by-play data, 2019--2024.*
 
 ---
 
@@ -294,7 +337,8 @@ def generate_doc(
     Path to the written Markdown file.
     """
     from src.generate_docs import (
-        _fmt_ev, _gain_label,
+        _fmt_ev,
+        _gain_label,
         _find_sweep_entry,
         _largest_window,
         _consecutive_positive_windows,
@@ -326,7 +370,7 @@ def generate_doc(
     elif window_covers_full_range:
         conclusion = (
             f"**The historical data shows a modest rush advantage across the full analyzed "
-            f"range ({sweep_min}–{sweep_max} s)**, but the gain is small and the threshold "
+            f"range ({sweep_min}--{sweep_max} s)**, but the gain is small and the threshold "
             "is not sharp. Shooting immediately is historically at least as good as holding, "
             "but the margin is narrow enough that shot quality matters more than the exact "
             "clock value. Coaches should push the pace when a good shot is available, not "
@@ -340,10 +384,11 @@ def generate_doc(
         ]
         caution = (
             f" Rushing at {above_neg[0]}+ seconds can reduce win probability."
-            if above_neg else ""
+            if above_neg
+            else ""
         )
         conclusion = (
-            f"**The 2-for-1 shows a positive signal in roughly the {window_low}–"
+            f"**The 2-for-1 shows a positive signal in roughly the {window_low}--"
             f"{window_high} s range**, but there is no sharp, reliable threshold — "
             f"individual second-by-second results are noisy.{caution} "
             "Use this as a directional guide: favour rushing when a good shot is "
@@ -352,6 +397,7 @@ def generate_doc(
         )
 
     from src.generate_docs import _build_theorem1_key_findings
+
     key_findings = _build_theorem1_key_findings(sweep)
 
     def _optimal_label(gain: float) -> str:

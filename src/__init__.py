@@ -1,5 +1,5 @@
 """
-Hardwood Heuristics – NBA Folk Theorems.
+Hardwood Heuristics -- NBA Folk Theorems.
 
 Sub-modules
 -----------

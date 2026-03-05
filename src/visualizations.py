@@ -7,9 +7,9 @@ Outputs are saved to ``docs/assets/images/``.
 
 Plots
 -----
-* ``foul_up_3_heatmap.svg``   – Win-probability gain (foul vs. no-foul) as a
+* ``foul_up_3_heatmap.svg``   -- Win-probability gain (foul vs. no-foul) as a
   heatmap over Time Remaining × Opponent 3PT%.
-* ``two_for_one_ev_curve.svg`` – Expected-value gain from rushing a shot vs.
+* ``two_for_one_ev_curve.svg`` -- Expected-value gain from rushing a shot vs.
   taking a full possession across a range of seconds-remaining values.
 """
 
@@ -25,7 +25,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
 
-matplotlib.use("Agg")   # non-interactive backend for headless environments
+matplotlib.use("Agg")  # non-interactive backend for headless environments
 
 logger = logging.getLogger(__name__)
 
@@ -155,16 +155,22 @@ def plot_two_for_one_ev_curve(
         out_path = IMAGES_DIR / "two_for_one_ev_curve.svg"
 
     seconds = [r["seconds_remaining"] for r in sweep_results]
-    ev_rush   = [r["ev_rush"]   for r in sweep_results]
+    ev_rush = [r["ev_rush"] for r in sweep_results]
     ev_normal = [r["ev_normal"] for r in sweep_results]
-    ev_gain   = [r["ev_gain"]   for r in sweep_results]
+    ev_gain = [r["ev_gain"] for r in sweep_results]
 
     fig, axes = plt.subplots(2, 1, figsize=(10, 8), sharex=True)
 
     # --- Top panel: absolute EV lines ---
     ax1 = axes[0]
-    ax1.plot(seconds, ev_rush,   color="#E63946", linewidth=2.2, label="Rush (shoot now)")
-    ax1.plot(seconds, ev_normal, color="#457B9D", linewidth=2.2, label="Normal (full possession)")
+    ax1.plot(seconds, ev_rush, color="#E63946", linewidth=2.2, label="Rush (shoot now)")
+    ax1.plot(
+        seconds,
+        ev_normal,
+        color="#457B9D",
+        linewidth=2.2,
+        label="Normal (full possession)",
+    )
     ax1.axhline(0, color="black", linewidth=0.8, linestyle="--", alpha=0.5)
     ax1.set_ylabel("Historical Win Percentage")
     ax1.set_title(
@@ -216,26 +222,35 @@ def plot_two_for_one_ev_curve(
 # ---------------------------------------------------------------------------
 # Per-theorem plot helpers
 # ---------------------------------------------------------------------------
-def _plot_theorem2(processed_dir: Path = PROCESSED_DIR, images_dir: Path = IMAGES_DIR) -> Path:
+def _plot_theorem2(
+    processed_dir: Path = PROCESSED_DIR, images_dir: Path = IMAGES_DIR
+) -> Path:
     """Load Theorem 2 data and save the Foul-Up-3 heatmap."""
     from src.theorems.theorem2 import plot as _t2_plot
+
     return _t2_plot(processed_dir, images_dir)
 
 
-def _plot_theorem1(processed_dir: Path = PROCESSED_DIR, images_dir: Path = IMAGES_DIR) -> Path:
+def _plot_theorem1(
+    processed_dir: Path = PROCESSED_DIR, images_dir: Path = IMAGES_DIR
+) -> Path:
     """Load Theorem 1 data and save the 2-for-1 win-percentage curve."""
     from src.theorems.theorem1 import plot as _t1_plot
+
     return _t1_plot(processed_dir, images_dir)
 
 
-def _plot_theorem3(processed_dir: Path = PROCESSED_DIR, images_dir: Path = IMAGES_DIR) -> Path:
+def _plot_theorem3(
+    processed_dir: Path = PROCESSED_DIR, images_dir: Path = IMAGES_DIR
+) -> Path:
     """Load Theorem 3 data and save the Late-Game Timeout win-percentage curve."""
     from src.theorems.theorem3 import plot as _t3_plot
+
     return _t3_plot(processed_dir, images_dir)
 
 
 # ---------------------------------------------------------------------------
-# Registry – maps theorem key → plot helper.
+# Registry -- maps theorem key → plot helper.
 # Add new theorems here; each function must accept (processed_dir, images_dir).
 # ---------------------------------------------------------------------------
 _PLOTTERS: dict = {
@@ -276,4 +291,3 @@ if __name__ == "__main__":
     paths = generate_all_plots()
     for p in paths:
         print(f"Saved: {p}")
-

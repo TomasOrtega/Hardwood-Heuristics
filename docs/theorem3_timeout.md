@@ -2,8 +2,8 @@
 
 ## Claim
 
-> **Based on NBA play-by-play data from 2019–2024, teams trailing by 1–3 points
-> (or tied) with possession and 20–50 seconds remaining do not consistently
+> **Based on NBA play-by-play data from 2019--2024, teams trailing by 1--3 points
+> (or tied) with possession and 20--50 seconds remaining do not consistently
 > gain a win-probability advantage by calling a timeout.**
 
 ---
@@ -32,26 +32,26 @@ each group across a sweep of time-remaining values.
 
 ### Key Findings
 
-1. **Calling a timeout is historically beneficial across all analyzed windows** (20–50 s). The average win % gain is **+50.0 pp**.
+1. **Results are mixed**: a timeout historically helps at 8 of 16 time buckets (24--50 s) but hurts at 8 others (20--48 s).
 
-2. **The advantage peaks around 20 s** (gain ≈ +50.0 pp) and is smallest near 20 s (gain ≈ +50.0 pp).
+2. **The largest timeout advantage** occurs around ~46 s (+12.4 pp). The largest disadvantage is near ~40 s (-15.0 pp).
 
-3. **The result is consistent**: calling a timeout to set up the final possession appears to help regardless of how many seconds remain in the analyzed window.
+3. **Overall the data is inconclusive**: there is no clean time window where timeouts are uniformly better or worse. The decision likely depends more on matchup and opponent tendencies than on the clock.
 
 ### Historical Data Summary
 
-Data from 5 NBA seasons (2019–2024):
+Data from 5 NBA seasons (2019--2024):
 
 | Seconds | Timeout Win % | Play-On Win % | Win % Gain | Better Strategy |
 |---------|--------------|--------------|------------|----------------|
-| 40 s | 0.50 | 0.00 | **+0.50** | Timeout ✓ |
-| 30 s | 0.50 | 0.00 | **+0.50** | Timeout ✓ |
-| 20 s | 0.50 | 0.00 | **+0.50** | Timeout ✓ |
+| 40 s | 0.00 | 0.15 | -0.15 | Play On ✓ |
+| 30 s | 0.14 | 0.07 | **+0.08** | Timeout ✓ |
+| 20 s | 0.09 | 0.11 | -0.02 | Play On ✓ |
 
-> *Values are historical win percentages from NBA play-by-play data, 2019–2024.*
+> *Values are historical win percentages from NBA play-by-play data, 2019--2024.*
 
 ---
 
 ## Conclusion
 
-**The historical data favours calling a timeout** when trailing with 20–50 seconds remaining (average win % gain: +50.0 pp). Setting up the final possession appears to be beneficial — coaches should use available timeouts to organise their offence in this window.
+**The historical data is inconclusive**: a timeout does not consistently help or hurt across the analyzed 20--50 second window. On average the gain is +0.6 pp — essentially noise. Coaches should base the timeout decision on matchup specifics and player fatigue rather than treating it as a universal rule.
