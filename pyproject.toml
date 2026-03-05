@@ -26,7 +26,6 @@ dependencies = [
     "matplotlib>=3.8",
     "seaborn>=0.13",
     "zensical>=0.0.24",
-    "requests>=2.31",
 ]
 
 [tool.setuptools.packages.find]

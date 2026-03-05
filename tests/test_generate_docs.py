@@ -14,9 +14,6 @@ import numpy as np
 import pytest
 
 from src.generate_docs import (
-    _build_theorem1_key_findings,
-    _build_theorem3_conclusion,
-    _build_theorem3_key_findings,
     _consecutive_positive_windows,
     _find_sweep_entry,
     _fmt_ev,
@@ -27,6 +24,11 @@ from src.generate_docs import (
     _generate_theorem1_doc,
     _generate_theorem2_doc,
     _generate_theorem3_doc,
+)
+from src.theorems.theorem1 import _build_key_findings as _build_theorem1_key_findings
+from src.theorems.theorem3 import (
+    _build_key_findings as _build_theorem3_key_findings,
+    _build_conclusion as _build_theorem3_conclusion,
 )
 
 # ---------------------------------------------------------------------------
