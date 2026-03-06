@@ -7,13 +7,6 @@ site_url = "https://tomasortega.github.io/Hardwood-Heuristics/"
 repo_name = "TomasOrtega/Hardwood-Heuristics"
 repo_url = "https://github.com/TomasOrtega/Hardwood-Heuristics"
 
-nav = [
-  { "Home" = "index.md" },
-  { "Theorem 1: The 2-for-1" = "theorem1_two_for_one.md" },
-  { "Theorem 2: Foul Up 3" = "theorem2_foul_up_3.md" },
-  { "Theorem 3: The Late-Game Timeout" = "theorem3_timeout.md" },
-]
-
 extra_javascript = [
   "https://polyfill.io/v3/polyfill.min.js?features=es6",
   "https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js",
@@ -25,10 +18,12 @@ language = "en"
 logo = "assets/logo/site_icon.svg"
 favicon = "assets/logo/site_icon.svg"
 features = [
-  "navigation.tabs",
-  "navigation.top",
+  # "navigation.tabs",
   "search.highlight",
   "content.code.copy",
+  "navigation.instant",
+  "navigation.tracking",
+  "navigation.footer"
 ]
 
 [[project.theme.palette]]

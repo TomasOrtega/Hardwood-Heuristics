@@ -2,7 +2,8 @@
 
 ## Claim
 
-> **Calling a timeout when trailing by 1--3 (or tied) with less than 50 seconds is beneficial.**
+> **Calling a timeout when trailing by 1--3 (or tied) with less than 50 seconds is
+> beneficial.**
 
 ---
 
