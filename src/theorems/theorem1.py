@@ -155,9 +155,9 @@ def plot(
     out_path = images_dir / FIGURE_FILENAME
 
     seconds = [r["seconds_remaining"] for r in sweep]
-    ev_rush = [r["ev_rush"] for r in sweep]
-    ev_normal = [r["ev_normal"] for r in sweep]
-    ev_gain = [r["ev_gain"] for r in sweep]
+    ev_rush = [r["ev_rush"] * 100 for r in sweep]
+    ev_normal = [r["ev_normal"] * 100 for r in sweep]
+    ev_gain = [r["ev_gain"] * 100 for r in sweep]
 
     apply_plot_aesthetics()
 

@@ -172,9 +172,9 @@ def plot(
     out_path = images_dir / FIGURE_FILENAME
 
     seconds = [r["seconds_remaining"] for r in sweep]
-    ev_timeout = [r["ev_timeout"] for r in sweep]
-    ev_play_on = [r["ev_play_on"] for r in sweep]
-    ev_gain = [r["ev_gain"] for r in sweep]
+    ev_timeout = [r["ev_timeout"] * 100 for r in sweep]
+    ev_play_on = [r["ev_play_on"] * 100 for r in sweep]
+    ev_gain = [r["ev_gain"] * 100 for r in sweep]
 
     apply_plot_aesthetics()
 
