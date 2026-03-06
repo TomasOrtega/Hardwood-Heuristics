@@ -60,10 +60,10 @@ Each theorem targets a specific late-game decision point.  We evaluate it by:
 
 ---
 
-## Getting Started
+## Reproducing the Analysis
 
 ```bash
-# Install dependencies (uv — faster)
+# Install dependencies
 uv sync
 
 # Run tests
