@@ -76,7 +76,7 @@ def collect(
 
     rows: List[Dict] = []
 
-    for sec in range(10, 65, 2):
+    for sec in range(10, 41, 2):
         if df.empty:
             rows.append(
                 {

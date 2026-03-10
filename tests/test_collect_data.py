@@ -14,6 +14,7 @@ import pandas as pd
 import pytest
 
 from src.collect_data import (
+    _collect_theorem1,
     _collect_theorem3,
     collect_theorem3,
 )
@@ -38,6 +39,27 @@ def _read_sweep_csv(path: Path):
         for row in reader:
             rows.append(row)
     return rows
+
+
+# ---------------------------------------------------------------------------
+# _collect_theorem1
+# ---------------------------------------------------------------------------
+
+
+class TestCollectTheorem1:
+    def test_creates_csv_file(self, tmp_path):
+        _write_synthetic_transitions(tmp_path)
+        out = _collect_theorem1(out_dir=tmp_path, processed_dir=tmp_path)
+        assert out.exists()
+        assert out.name == "theorem1_sweep.csv"
+
+    def test_sweep_covers_10_to_40_seconds(self, tmp_path):
+        _write_synthetic_transitions(tmp_path)
+        out = _collect_theorem1(out_dir=tmp_path, processed_dir=tmp_path)
+        sweep = _read_sweep_csv(out)
+        secs = [int(e["seconds_remaining"]) for e in sweep]
+        assert min(secs) == 10
+        assert max(secs) == 40
 
 
 # ---------------------------------------------------------------------------
