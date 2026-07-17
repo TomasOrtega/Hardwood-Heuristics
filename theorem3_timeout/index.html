@@ -536,15 +536,18 @@ than playing on with 20--50 seconds remaining?</strong></p>
 <li><strong>Play On:</strong> The team's first action is a shot or turnover.</li>
 </ul>
 <p>Other first actions are excluded. We calculate the possessing team's historical
-win percentage and save observation counts for each group. This is descriptive:
-timeout availability, team quality, and why a coach stopped play are not
-controlled for.</p>
+win percentage and save observation counts and pointwise 95% uncertainty
+intervals for each group. Each interval uses the wider limits from a
+game-cluster bootstrap and Wilson/Newcombe finite-sample bounds. Games are
+resampled as blocks so repeated clock values and overtime periods from one game
+remain together. This is descriptive: timeout availability, team quality, and
+why a coach stopped play are not controlled for.</p>
 <hr />
 <h2 id="results">Results<a class="headerlink" href="#results" title="Permanent link">&para;</a></h2>
 <p><img alt="Late-Game Timeout Win Percentage Curve" src="../assets/images/timeout_ev_curve.svg" /></p>
 <hr />
 <h2 id="conclusion">Conclusion<a class="headerlink" href="#conclusion" title="Permanent link">&para;</a></h2>
-<p>Calling timeout had the higher observed win rate at 11 of 16 comparable clock points. This association does not show that the timeout itself caused the difference.</p>
+<p>Calling timeout had the higher observed win rate at 11 of 16 comparable clock points. The 95% interval excluded zero in favor of timeout at 0 points. This association does not show that the timeout itself caused the difference.</p>
 
 
 

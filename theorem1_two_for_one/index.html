@@ -533,15 +533,19 @@ with the ball. We group those possessions by timing:</p>
 <li><strong>Rush:</strong> The shot occurs within five seconds of the target clock.</li>
 <li><strong>Normal:</strong> The shot occurs more than five seconds later.</li>
 </ul>
-<p>The saved sweep reports the possessing team's historical win percentage and
-the number of observations in each group. It is a descriptive association,
-not a causal estimate; team quality and game context are not adjusted for.</p>
+<p>The saved sweep reports the possessing team's historical win percentage,
+observation counts, and pointwise 95% uncertainty intervals. Each interval
+uses the wider limits from a game-cluster bootstrap and Wilson/Newcombe
+finite-sample bounds. Games are resampled as blocks so repeated clock values
+and overtime periods from the same game remain together. This is a descriptive
+association, not a causal estimate; team quality and game context are not
+adjusted for.</p>
 <hr />
 <h2 id="results">Results<a class="headerlink" href="#results" title="Permanent link">&para;</a></h2>
 <p><img alt="2-for-1 Win Percentage Curve" src="../assets/images/two_for_one_ev_curve.svg" /></p>
 <hr />
 <h2 id="conclusion">Conclusion<a class="headerlink" href="#conclusion" title="Permanent link">&para;</a></h2>
-<p>Rushing had the higher observed win rate at 4 of 6 comparable clock points. The result is mixed and should not be interpreted as a causal effect.</p>
+<p>Rushing had the higher observed win rate at 4 of 6 comparable clock points. The 95% interval excluded zero in favor of rushing at 0 points. The result is mixed and should not be interpreted as a causal effect.</p>
 
 
 
