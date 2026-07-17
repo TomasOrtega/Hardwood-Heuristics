@@ -28,8 +28,14 @@ def _make_theorem3_csv(tmp_path: Path, n: int = 8) -> Path:
         {
             "seconds_remaining": s,
             "ev_timeout": round(t, 4),
+            "ev_timeout_ci_low": round(max(0, t - 0.1), 4),
+            "ev_timeout_ci_high": round(min(1, t + 0.1), 4),
             "ev_play_on": round(p, 4),
+            "ev_play_on_ci_low": round(max(0, p - 0.1), 4),
+            "ev_play_on_ci_high": round(min(1, p + 0.1), 4),
             "ev_gain": round(t - p, 4),
+            "ev_gain_ci_low": round(t - p - 0.15, 4),
+            "ev_gain_ci_high": round(t - p + 0.15, 4),
             "timeout_is_optimal": t > p,
         }
         for s, t, p in zip(seconds, ev_timeout, ev_play_on)
@@ -38,8 +44,14 @@ def _make_theorem3_csv(tmp_path: Path, n: int = 8) -> Path:
     fieldnames = [
         "seconds_remaining",
         "ev_timeout",
+        "ev_timeout_ci_low",
+        "ev_timeout_ci_high",
         "ev_play_on",
+        "ev_play_on_ci_low",
+        "ev_play_on_ci_high",
         "ev_gain",
+        "ev_gain_ci_low",
+        "ev_gain_ci_high",
         "timeout_is_optimal",
     ]
     with open(csv_path, "w", newline="") as fh:

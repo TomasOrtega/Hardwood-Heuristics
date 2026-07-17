@@ -219,6 +219,19 @@ class TestPlayByPlayParser:
         if not result.empty:
             assert set(result["game_outcome"].unique()).issubset({0, 1})
 
+    def test_parse_avoids_dataframe_iterrows(self, tmp_path):
+        raw = _make_raw_pbp(30)
+        parser = PlayByPlayParser(processed_dir=tmp_path)
+
+        with patch.object(
+            pd.DataFrame,
+            "iterrows",
+            side_effect=AssertionError("iterrows is too slow for the raw event log"),
+        ):
+            result = parser.parse(raw)
+
+        assert len(result) == len(raw)
+
 
 # ---------------------------------------------------------------------------
 # build_synthetic_transitions

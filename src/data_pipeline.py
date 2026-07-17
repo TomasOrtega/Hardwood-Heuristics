@@ -383,7 +383,7 @@ class PlayByPlayParser:
 
         rows: List[Dict] = []
         # Group by the FULL raw_df to trace chronological possession perfectly
-        for game_id, game_df in raw_df.groupby("GAME_ID"):
+        for game_id, game_df in raw_df.groupby("GAME_ID", sort=False):
             # Skip games that don't have any late-game data
             has_late_game = (
                 (game_df["PERIOD"] >= 4)
@@ -393,8 +393,8 @@ class PlayByPlayParser:
                 continue
 
             game_outcome = self._compute_game_outcome(game_df)
-            if "SEASON" in raw_df.columns:
-                season = str(raw_df.loc[raw_df["GAME_ID"] == game_id, "SEASON"].iloc[0])
+            if "SEASON" in game_df.columns:
+                season = str(game_df["SEASON"].iloc[0])
             else:
                 season = _season_from_game_id(str(game_id))
 
@@ -415,30 +415,41 @@ class PlayByPlayParser:
     # Private helpers
     # ------------------------------------------------------------------
     def _add_seconds_remaining(self, df: pd.DataFrame) -> pd.DataFrame:
-        df["seconds_remaining"] = df["PCTIMESTRING"].apply(_period_clock_to_seconds)
+        clock = df["PCTIMESTRING"].fillna("").astype(str).str.strip()
+        iso_parts = clock.str.extract(
+            r"^PT(?:(\d+(?:\.\d+)?)M)?(?:(\d+(?:\.\d+)?)S)?$"
+        )
+        iso_seconds = (
+            pd.to_numeric(iso_parts[0], errors="coerce").fillna(0) * 60
+            + pd.to_numeric(iso_parts[1], errors="coerce").fillna(0)
+        )
+        legacy_parts = clock.str.extract(r"^(\d+):(\d+(?:\.\d+)?)$")
+        legacy_seconds = (
+            pd.to_numeric(legacy_parts[0], errors="coerce").fillna(0) * 60
+            + pd.to_numeric(legacy_parts[1], errors="coerce").fillna(0)
+        )
+        df["seconds_remaining"] = (
+            iso_seconds.where(clock.str.startswith("PT"), legacy_seconds)
+            .fillna(0)
+            .astype(int)
+        )
         return df
 
     def _add_score_columns(self, df: pd.DataFrame) -> pd.DataFrame:
         """Parse 'VVV - HHH' SCORE strings into away/home integers."""
-
-        def parse_score(s):
-            if pd.isna(s) or str(s).strip() == "":
-                return np.nan, np.nan
-            parts = str(s).split(" - ")
-            if len(parts) != 2:
-                return np.nan, np.nan
-            try:
-                return int(parts[0]), int(parts[1])
-            except ValueError:
-                return np.nan, np.nan
-
-        scores = df["SCORE"].apply(parse_score)
-        df["away_score"] = [s[0] for s in scores]
-        df["home_score"] = [s[1] for s in scores]
-        df["home_score"] = df.groupby("GAME_ID")["home_score"].ffill()
-        df["away_score"] = df.groupby("GAME_ID")["away_score"].ffill()
-        df["home_score"] = df["home_score"].fillna(0)
-        df["away_score"] = df["away_score"].fillna(0)
+        scores = df["SCORE"].astype("string").str.split(
+            r"\s*-\s*",
+            n=1,
+            expand=True,
+        )
+        if scores.shape[1] < 2:
+            scores[1] = pd.NA
+        df["away_score"] = pd.to_numeric(scores[0], errors="coerce")
+        df["home_score"] = pd.to_numeric(scores[1], errors="coerce")
+        score_cols = ["home_score", "away_score"]
+        df[score_cols] = (
+            df.groupby("GAME_ID", sort=False)[score_cols].ffill().fillna(0)
+        )
         df["score_differential"] = (
             (df["home_score"] - df["away_score"])
             .clip(-SCORE_DIFF_CLIP, SCORE_DIFF_CLIP)
@@ -472,17 +483,22 @@ class PlayByPlayParser:
     def _description(value) -> str:
         return "" if pd.isna(value) else str(value)
 
-    def _infer_action_team(self, row: pd.Series) -> Optional[int]:
-        player_team = self._normalize_team_id(row.get("PLAYER1_TEAM_ID"))
-        home_team = self._normalize_team_id(row.get("HOME_TEAM_ID"))
-        away_team = self._normalize_team_id(row.get("AWAY_TEAM_ID"))
+    def _infer_action_team(
+        self,
+        player_team_value,
+        home_team: str,
+        away_team: str,
+        home_description,
+        away_description,
+    ) -> Optional[int]:
+        player_team = self._normalize_team_id(player_team_value)
         if player_team and player_team == home_team:
             return 1
         if player_team and player_team == away_team:
             return 0
 
-        home_desc = self._description(row.get("HOMEDESCRIPTION")).strip()
-        away_desc = self._description(row.get("VISITORDESCRIPTION")).strip()
+        home_desc = self._description(home_description).strip()
+        away_desc = self._description(away_description).strip()
         if home_desc and not away_desc:
             return 1
         if away_desc and not home_desc:
@@ -491,15 +507,16 @@ class PlayByPlayParser:
 
     def _possession_before_event(
         self,
-        row: pd.Series,
+        event_type: int,
+        home_description,
+        away_description,
         current_possession: int,
         action_team: Optional[int],
     ) -> int:
         if action_team is None:
             return current_possession
 
-        etype = int(row.get("EVENTMSGTYPE", 0))
-        if etype in {
+        if event_type in {
             self._SHOT_MADE_TYPE,
             self._SHOT_MISSED_TYPE,
             self._FREE_THROW_TYPE,
@@ -507,30 +524,31 @@ class PlayByPlayParser:
             self._TIMEOUT_TYPE,
         }:
             return action_team
-        if etype == self._FOUL_TYPE:
+        if event_type == self._FOUL_TYPE:
             desc = (
-                self._description(row.get("HOMEDESCRIPTION"))
-                + self._description(row.get("VISITORDESCRIPTION"))
+                self._description(home_description)
+                + self._description(away_description)
             ).upper()
             return action_team if "OFFENSIVE" in desc else 1 - action_team
         return current_possession
 
     def _infer_possession(
         self,
-        row: pd.Series,
+        event_type: int,
+        home_description,
+        away_description,
         current_possession: int,
         action_team: Optional[int],
     ) -> int:
         """Heuristic: determine which team has the ball after this event."""
-        etype = int(row.get("EVENTMSGTYPE", 0))
-        home_desc = self._description(row.get("HOMEDESCRIPTION")).upper()
-        away_desc = self._description(row.get("VISITORDESCRIPTION")).upper()
+        home_desc = self._description(home_description).upper()
+        away_desc = self._description(away_description).upper()
 
-        if etype == self._SHOT_MADE_TYPE:
+        if event_type == self._SHOT_MADE_TYPE:
             return 1 - action_team if action_team is not None else 1 - current_possession
-        if etype == self._SHOT_MISSED_TYPE:
+        if event_type == self._SHOT_MISSED_TYPE:
             return action_team if action_team is not None else current_possession
-        if etype == self._REBOUND_TYPE:
+        if event_type == self._REBOUND_TYPE:
             if action_team is not None:
                 return action_team
             if home_desc:
@@ -538,9 +556,9 @@ class PlayByPlayParser:
             if away_desc:
                 return 0
             return current_possession
-        if etype == self._TURNOVER_TYPE:
+        if event_type == self._TURNOVER_TYPE:
             return 1 - action_team if action_team is not None else 1 - current_possession
-        if etype == self._FREE_THROW_TYPE:
+        if event_type == self._FREE_THROW_TYPE:
             desc = home_desc + away_desc
             if "1 OF 1" in desc or "2 OF 2" in desc or "3 OF 3" in desc:
                 if "MISS" in desc:
@@ -550,7 +568,7 @@ class PlayByPlayParser:
                     if action_team is not None
                     else 1 - current_possession
                 )
-        if etype == self._VIOLATION_TYPE:
+        if event_type == self._VIOLATION_TYPE:
             desc = home_desc + away_desc
             # Kicked ball and defensive violations retain possession.
             if "KICKED BALL" in desc or "DEFENSIVE" in desc:
@@ -559,9 +577,8 @@ class PlayByPlayParser:
 
         return current_possession
 
-    def _classify_action(self, row: pd.Series) -> str:
+    def _classify_action(self, event_type: int) -> str:
         """Map an event type to a strategic action label."""
-        etype = int(row.get("EVENTMSGTYPE", 0))
         mapping = {
             self._SHOT_MADE_TYPE: "shoot",
             self._SHOT_MISSED_TYPE: "shoot",
@@ -571,7 +588,7 @@ class PlayByPlayParser:
             self._FOUL_TYPE: "foul",
             self._TIMEOUT_TYPE: "timeout",
         }
-        return mapping.get(etype, "other")
+        return mapping.get(event_type, "other")
 
     def _process_game(
         self,
@@ -584,36 +601,69 @@ class PlayByPlayParser:
         possession = (
             1  # Start with home team (will self-correct within seconds of tip-off)
         )
-        events = df.sort_values(["PERIOD", "EVENTNUM"], kind="stable").reset_index(
-            drop=True
+        columns = {column: index for index, column in enumerate(df.columns)}
+        period_index = columns["PERIOD"]
+        event_num_index = columns["EVENTNUM"]
+        event_type_index = columns["EVENTMSGTYPE"]
+        seconds_index = columns["seconds_remaining"]
+        score_diff_index = columns["score_differential"]
+        home_description_index = columns["HOMEDESCRIPTION"]
+        away_description_index = columns["VISITORDESCRIPTION"]
+        player_team_index = columns.get("PLAYER1_TEAM_ID")
+
+        home_team_values = (
+            df["HOME_TEAM_ID"].dropna() if "HOME_TEAM_ID" in df.columns else []
+        )
+        away_team_values = (
+            df["AWAY_TEAM_ID"].dropna() if "AWAY_TEAM_ID" in df.columns else []
+        )
+        home_team = self._normalize_team_id(
+            home_team_values.iloc[0] if len(home_team_values) else None
+        )
+        away_team = self._normalize_team_id(
+            away_team_values.iloc[0] if len(away_team_values) else None
         )
 
-        for _, row in events.iterrows():
-            period = int(row["PERIOD"])
-            sec = int(row["seconds_remaining"])
-            score_diff = int(row["score_differential"])
-            action_taken = self._classify_action(row)
-            action_team = self._infer_action_team(row)
+        for values in df.itertuples(index=False, name=None):
+            period = int(values[period_index])
+            sec = int(values[seconds_index])
+            score_diff = int(values[score_diff_index])
+            event_type = int(values[event_type_index])
+            home_description = values[home_description_index]
+            away_description = values[away_description_index]
+            player_team = (
+                values[player_team_index] if player_team_index is not None else None
+            )
+            action_taken = self._classify_action(event_type)
+            action_team = self._infer_action_team(
+                player_team,
+                home_team,
+                away_team,
+                home_description,
+                away_description,
+            )
             event_possession = self._possession_before_event(
-                row,
+                event_type,
+                home_description,
+                away_description,
                 possession,
                 action_team,
             )
 
-            # Update state variables chronologically for the entire game
             next_possession = self._infer_possession(
-                row,
+                event_type,
+                home_description,
+                away_description,
                 event_possession,
                 action_team,
             )
-            # Only record the possession if it falls into our target time window
             if period >= 4 and sec <= FINAL_PERIOD_SECONDS:
                 rows.append(
                     {
                         "game_id": game_id,
                         "season": season,
                         "period": period,
-                        "event_num": int(row["EVENTNUM"]),
+                        "event_num": int(values[event_num_index]),
                         "seconds_remaining": sec,
                         "score_differential": score_diff,
                         "possession": event_possession,

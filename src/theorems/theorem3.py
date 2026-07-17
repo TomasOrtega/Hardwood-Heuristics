@@ -22,8 +22,9 @@ import numpy as np
 from src.theorems.utils import (
     apply_plot_aesthetics,
     FIGURE_DPI,
-    get_resolved_possessions_at_time,
+    get_resolved_possessions_at_times,
     load_sweep_csv,
+    summarize_binary_comparison,
     write_sweep_csv,
 )
 
@@ -35,6 +36,7 @@ logger = logging.getLogger(__name__)
 CSV_FILENAME = "theorem3_sweep.csv"
 FIGURE_FILENAME = "timeout_ev_curve.svg"
 DOC_FILENAME = "theorem3_timeout.md"
+TIME_VALUES = list(range(20, 51, 2))
 
 # ---------------------------------------------------------------------------
 # Data collection
@@ -71,53 +73,56 @@ def collect(
     df = _load_historical_log(processed_dir)
     logger.info("Computing Theorem 3 (Late-Game Timeout) historical win rates…")
 
+    resolved = get_resolved_possessions_at_times(df, TIME_VALUES)
+    resolved["possessing_margin"] = np.where(
+        resolved["possession"] == 1,
+        resolved["score_differential"],
+        -resolved["score_differential"],
+    )
+    window = resolved[resolved["possessing_margin"].between(-3, 0)].copy()
+    window["team_won"] = np.where(
+        window["possession"] == 1,
+        window["game_outcome"],
+        1 - window["game_outcome"],
+    )
+    timeout = (window["action_taken"] == "timeout") & (
+        window["action_team"] == window["possession"]
+    )
+    play_on = window["action_taken"].isin(["shoot", "turnover"]) & (
+        window["action_team"] == window["possession"]
+    )
+    window["strategy"] = np.select(
+        [timeout, play_on],
+        ["timeout", "play_on"],
+        default=None,
+    )
+
+    comparison = summarize_binary_comparison(
+        window,
+        target_values=TIME_VALUES,
+        group_col="strategy",
+        outcome_col="team_won",
+        groups=("timeout", "play_on"),
+        seed=3,
+    )
     rows: List[Dict] = []
-
-    for sec in range(20, 51, 2):
-        resolved = get_resolved_possessions_at_time(df, sec)
-        resolved["possessing_margin"] = np.where(
-            resolved["possession"] == 1,
-            resolved["score_differential"],
-            -resolved["score_differential"],
-        )
-        window = resolved[resolved["possessing_margin"].between(-3, 0)].copy()
-        window["team_won"] = np.where(
-            window["possession"] == 1,
-            window["game_outcome"],
-            1 - window["game_outcome"],
-        )
-        timeout_outcomes = window.loc[
-            (window["action_taken"] == "timeout")
-            & (window["action_team"] == window["possession"]),
-            "team_won",
-        ]
-        play_on_outcomes = window.loc[
-            window["action_taken"].isin(["shoot", "turnover"])
-            & (window["action_team"] == window["possession"]),
-            "team_won",
-        ]
-
-        ev_timeout = (
-            float(timeout_outcomes.mean())
-            if not timeout_outcomes.empty
-            else float("nan")
-        )
-        ev_play_on = (
-            float(play_on_outcomes.mean())
-            if not play_on_outcomes.empty
-            else float("nan")
-        )
-        ev_gain = ev_timeout - ev_play_on
-
+    for result in comparison:
+        gain = result["difference"]
         rows.append(
             {
-                "seconds_remaining": sec,
-                "ev_timeout": round(ev_timeout, 4),
-                "ev_play_on": round(ev_play_on, 4),
-                "ev_gain": round(ev_gain, 4),
-                "n_timeout": len(timeout_outcomes),
-                "n_play_on": len(play_on_outcomes),
-                "timeout_is_optimal": bool(np.isfinite(ev_gain) and ev_gain > 0),
+                "seconds_remaining": result["target_seconds"],
+                "ev_timeout": round(result["timeout"], 4),
+                "ev_timeout_ci_low": round(result["timeout_ci_low"], 4),
+                "ev_timeout_ci_high": round(result["timeout_ci_high"], 4),
+                "ev_play_on": round(result["play_on"], 4),
+                "ev_play_on_ci_low": round(result["play_on_ci_low"], 4),
+                "ev_play_on_ci_high": round(result["play_on_ci_high"], 4),
+                "ev_gain": round(gain, 4),
+                "ev_gain_ci_low": round(result["difference_ci_low"], 4),
+                "ev_gain_ci_high": round(result["difference_ci_high"], 4),
+                "n_timeout": result["n_timeout"],
+                "n_play_on": result["n_play_on"],
+                "timeout_is_optimal": bool(np.isfinite(gain) and gain > 0),
             }
         )
 
@@ -128,8 +133,14 @@ def collect(
         fieldnames=[
             "seconds_remaining",
             "ev_timeout",
+            "ev_timeout_ci_low",
+            "ev_timeout_ci_high",
             "ev_play_on",
+            "ev_play_on_ci_low",
+            "ev_play_on_ci_high",
             "ev_gain",
+            "ev_gain_ci_low",
+            "ev_gain_ci_high",
             "n_timeout",
             "n_play_on",
             "timeout_is_optimal",
@@ -172,8 +183,14 @@ def plot(
 
     seconds = [r["seconds_remaining"] for r in sweep]
     ev_timeout = [r["ev_timeout"] * 100 for r in sweep]
+    ev_timeout_low = [r["ev_timeout_ci_low"] * 100 for r in sweep]
+    ev_timeout_high = [r["ev_timeout_ci_high"] * 100 for r in sweep]
     ev_play_on = [r["ev_play_on"] * 100 for r in sweep]
+    ev_play_on_low = [r["ev_play_on_ci_low"] * 100 for r in sweep]
+    ev_play_on_high = [r["ev_play_on_ci_high"] * 100 for r in sweep]
     ev_gain = [r["ev_gain"] * 100 for r in sweep]
+    ev_gain_low = np.array([r["ev_gain_ci_low"] * 100 for r in sweep])
+    ev_gain_high = np.array([r["ev_gain_ci_high"] * 100 for r in sweep])
 
     apply_plot_aesthetics()
 
@@ -182,7 +199,22 @@ def plot(
     # --- Top panel: absolute win-percentage lines ---
     ax1 = axes[0]
     ax1.plot(seconds, ev_timeout, color="#E63946", linewidth=2.2, label="Timeout")
+    ax1.fill_between(
+        seconds,
+        ev_timeout_low,
+        ev_timeout_high,
+        color="#E63946",
+        alpha=0.15,
+        label="95% game-clustered interval",
+    )
     ax1.plot(seconds, ev_play_on, color="#457B9D", linewidth=2.2, label="Play On")
+    ax1.fill_between(
+        seconds,
+        ev_play_on_low,
+        ev_play_on_high,
+        color="#457B9D",
+        alpha=0.15,
+    )
     ax1.axhline(0, color="black", linewidth=0.8, linestyle="--", alpha=0.5)
     ax1.set_ylabel("Historical Win Percentage")
     ax1.set_title(
@@ -198,6 +230,23 @@ def plot(
     gain_arr = np.array(ev_gain)
     colors = np.where(gain_arr >= 0, "#2DC653", "#E63946")
     ax2.bar(seconds, gain_arr, color=colors, width=1.6, alpha=0.85)
+    finite = np.isfinite(gain_arr) & np.isfinite(ev_gain_low) & np.isfinite(
+        ev_gain_high
+    )
+    ax2.errorbar(
+        np.asarray(seconds)[finite],
+        gain_arr[finite],
+        yerr=np.vstack(
+            [
+                np.maximum(0, gain_arr[finite] - ev_gain_low[finite]),
+                np.maximum(0, ev_gain_high[finite] - gain_arr[finite]),
+            ]
+        ),
+        fmt="none",
+        ecolor="black",
+        capsize=3,
+        linewidth=1,
+    )
     ax2.axhline(0, color="black", linewidth=1.0)
     ax2.set_xlabel("Seconds Remaining")
     ax2.set_ylabel("Historical Win % Gain from Timeout (pp)")
@@ -239,9 +288,12 @@ We group possessions by:
 - **Play On:** The team's first action is a shot or turnover.
 
 Other first actions are excluded. We calculate the possessing team's historical
-win percentage and save observation counts for each group. This is descriptive:
-timeout availability, team quality, and why a coach stopped play are not
-controlled for.
+win percentage and save observation counts and pointwise 95% uncertainty
+intervals for each group. Each interval uses the wider limits from a
+game-cluster bootstrap and Wilson/Newcombe finite-sample bounds. Games are
+resampled as blocks so repeated clock values and overtime periods from one game
+remain together. This is descriptive: timeout availability, team quality, and
+why a coach stopped play are not controlled for.
 
 ---
 
@@ -283,10 +335,13 @@ def generate_doc(
         and np.isfinite(row["ev_gain"])
     ]
     positive = sum(row["ev_gain"] > 0 for row in comparable)
+    clearly_positive = sum(row["ev_gain_ci_low"] > 0 for row in comparable)
     conclusion = (
         f"Calling timeout had the higher observed win rate at {positive} of "
-        f"{len(comparable)} comparable clock points. This association does not "
-        "show that the timeout itself caused the difference."
+        f"{len(comparable)} comparable clock points. The 95% interval excluded "
+        f"zero in favor of timeout at {clearly_positive} points. This "
+        "association does not show that the timeout itself caused the "
+        "difference."
         if comparable
         else "There are not enough observations to compare the strategies."
     )

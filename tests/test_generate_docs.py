@@ -42,8 +42,14 @@ def _make_sweep(
             {
                 "seconds_remaining": s,
                 "ev_rush": rush,
+                "ev_rush_ci_low": max(0, rush - 0.1),
+                "ev_rush_ci_high": min(1, rush + 0.1),
                 "ev_normal": normal,
+                "ev_normal_ci_low": max(0, normal - 0.1),
+                "ev_normal_ci_high": min(1, normal + 0.1),
                 "ev_gain": rush - normal,
+                "ev_gain_ci_low": rush - normal - 0.15,
+                "ev_gain_ci_high": rush - normal + 0.15,
                 "n_rush": 12,
                 "n_normal": 14,
                 "rush_is_optimal": rush > normal,
@@ -59,8 +65,14 @@ def _write_theorem1_data(tmp_path: Path, sweep: list[dict]) -> None:
     fieldnames = [
         "seconds_remaining",
         "ev_rush",
+        "ev_rush_ci_low",
+        "ev_rush_ci_high",
         "ev_normal",
+        "ev_normal_ci_low",
+        "ev_normal_ci_high",
         "ev_gain",
+        "ev_gain_ci_low",
+        "ev_gain_ci_high",
         "n_rush",
         "n_normal",
         "rush_is_optimal",
@@ -97,8 +109,14 @@ def _make_theorem3_sweep(
             {
                 "seconds_remaining": s,
                 "ev_timeout": ev_timeout,
+                "ev_timeout_ci_low": max(0, ev_timeout - 0.1),
+                "ev_timeout_ci_high": min(1, ev_timeout + 0.1),
                 "ev_play_on": ev_play_on,
+                "ev_play_on_ci_low": max(0, ev_play_on - 0.1),
+                "ev_play_on_ci_high": min(1, ev_play_on + 0.1),
                 "ev_gain": ev_timeout - ev_play_on,
+                "ev_gain_ci_low": ev_timeout - ev_play_on - 0.15,
+                "ev_gain_ci_high": ev_timeout - ev_play_on + 0.15,
                 "n_timeout": 8,
                 "n_play_on": 20,
                 "timeout_is_optimal": ev_timeout > ev_play_on,
@@ -114,8 +132,14 @@ def _write_theorem3_data(tmp_path: Path, sweep: list[dict]) -> None:
     fieldnames = [
         "seconds_remaining",
         "ev_timeout",
+        "ev_timeout_ci_low",
+        "ev_timeout_ci_high",
         "ev_play_on",
+        "ev_play_on_ci_low",
+        "ev_play_on_ci_high",
         "ev_gain",
+        "ev_gain_ci_low",
+        "ev_gain_ci_high",
         "n_timeout",
         "n_play_on",
         "timeout_is_optimal",
@@ -137,8 +161,14 @@ def _write_theorem2_data(tmp_path: Path, gain_offset: float = 0.0) -> None:
             {
                 "seconds_remaining": seconds,
                 "ev_foul": ev_foul,
+                "ev_foul_ci_low": ev_foul - 0.1,
+                "ev_foul_ci_high": min(1, ev_foul + 0.1),
                 "ev_defend": ev_defend,
+                "ev_defend_ci_low": ev_defend - 0.1,
+                "ev_defend_ci_high": ev_defend + 0.1,
                 "ev_gain": ev_foul - ev_defend,
+                "ev_gain_ci_low": ev_foul - ev_defend - 0.15,
+                "ev_gain_ci_high": ev_foul - ev_defend + 0.15,
                 "n_foul": 6,
                 "n_defend": 15,
                 "foul_is_better": ev_foul > ev_defend,
@@ -169,6 +199,7 @@ class TestGenerateTheorem1Doc:
         # The figure and conclusion should be present
         assert "two_for_one_ev_curve.svg" in content
         assert "## Conclusion" in content
+        assert "game-cluster bootstrap" in content
 
     def test_returns_path(self, tmp_path):
         sweep = _make_sweep()
@@ -200,6 +231,7 @@ class TestGenerateTheorem2Doc:
         content = (tmp_path / "theorem2_foul_up_3.md").read_text()
         assert "## Conclusion" in content
         assert "5 of 5 comparable clock points" in content
+        assert "game-cluster bootstrap" in content
 
     def test_returns_path(self, tmp_path):
         _write_theorem2_data(tmp_path)
@@ -235,6 +267,7 @@ class TestGenerateTheorem3Doc:
         # The figure and conclusion should be present
         assert "timeout_ev_curve.svg" in content
         assert "## Conclusion" in content
+        assert "game-cluster bootstrap" in content
 
 
 # ---------------------------------------------------------------------------

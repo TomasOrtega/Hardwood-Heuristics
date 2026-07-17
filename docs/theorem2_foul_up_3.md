@@ -17,8 +17,11 @@ the first logged action after the target clock is:
 - **Defend:** The trailing offense shoots or turns the ball over before a foul.
 
 Empty groups remain missing rather than being assigned a 50% win rate. The
-saved data include observation counts. This is a descriptive comparison and
-does not adjust for why coaches chose to foul.
+saved data include observation counts and pointwise 95% uncertainty intervals.
+Each interval uses the wider limits from a game-cluster bootstrap and
+Wilson/Newcombe finite-sample bounds. Resampling games as blocks keeps repeated
+clock values and overtime periods from the same game together. This is a
+descriptive comparison and does not adjust for why coaches chose to foul.
 
 ---
 
@@ -30,5 +33,5 @@ does not adjust for why coaches chose to foul.
 
 ## Conclusion
 
-Fouling had the higher observed win rate at 3 of 5 comparable clock points. Sample sizes are small, so the data do not establish that fouling causes better outcomes.
+Fouling had the higher observed win rate at 3 of 5 comparable clock points. The 95% interval excluded zero in favor of fouling at 0 points. Sample sizes are small, so the data do not establish that fouling causes better outcomes.
 

@@ -22,8 +22,9 @@ import numpy as np
 from src.theorems.utils import (
     apply_plot_aesthetics,
     FIGURE_DPI,
-    get_resolved_possessions_at_time,
+    get_resolved_possessions_at_times,
     load_sweep_csv,
+    summarize_binary_comparison,
     write_sweep_csv,
 )
 
@@ -37,6 +38,7 @@ FIGURE_FILENAME = "two_for_one_ev_curve.svg"
 DOC_FILENAME = "theorem1_two_for_one.md"
 
 RUSH_THRESHOLD_SECONDS = 5
+TIME_VALUES = list(range(30, 41, 2))
 
 
 # ---------------------------------------------------------------------------
@@ -74,48 +76,49 @@ def collect(
     df = _load_historical_log(processed_dir)
     logger.info("Computing Theorem 1 (2-for-1) historical win rates…")
 
+    resolved = get_resolved_possessions_at_times(df, TIME_VALUES)
+    window = resolved[
+        (resolved["score_differential"] == 0)
+        & (resolved["action_taken"] == "shoot")
+        & (resolved["action_team"] == resolved["possession"])
+    ].copy()
+    window["team_won"] = np.where(
+        window["possession"] == 1,
+        window["game_outcome"],
+        1 - window["game_outcome"],
+    )
+    window["strategy"] = np.where(
+        window["action_delay"] <= RUSH_THRESHOLD_SECONDS,
+        "rush",
+        "normal",
+    )
+
+    comparison = summarize_binary_comparison(
+        window,
+        target_values=TIME_VALUES,
+        group_col="strategy",
+        outcome_col="team_won",
+        groups=("rush", "normal"),
+        seed=1,
+    )
     rows: List[Dict] = []
-
-    for sec in range(30, 41, 2):
-        resolved = get_resolved_possessions_at_time(df, sec)
-        window = resolved[resolved["score_differential"] == 0].copy()
-        window = window[
-            (window["action_taken"] == "shoot")
-            & (window["action_team"] == window["possession"])
-        ].copy()
-        window["team_won"] = np.where(
-            window["possession"] == 1,
-            window["game_outcome"],
-            1 - window["game_outcome"],
-        )
-        rush_outcomes = window.loc[
-            window["action_delay"] <= RUSH_THRESHOLD_SECONDS,
-            "team_won",
-        ]
-        normal_outcomes = window.loc[
-            window["action_delay"] > RUSH_THRESHOLD_SECONDS,
-            "team_won",
-        ]
-
-        ev_rush = (
-            float(rush_outcomes.mean()) if not rush_outcomes.empty else float("nan")
-        )
-        ev_normal = (
-            float(normal_outcomes.mean())
-            if not normal_outcomes.empty
-            else float("nan")
-        )
-        ev_gain = ev_rush - ev_normal
-
+    for result in comparison:
+        gain = result["difference"]
         rows.append(
             {
-                "seconds_remaining": sec,
-                "ev_rush": round(ev_rush, 4),
-                "ev_normal": round(ev_normal, 4),
-                "ev_gain": round(ev_gain, 4),
-                "n_rush": len(rush_outcomes),
-                "n_normal": len(normal_outcomes),
-                "rush_is_optimal": bool(np.isfinite(ev_gain) and ev_gain > 0),
+                "seconds_remaining": result["target_seconds"],
+                "ev_rush": round(result["rush"], 4),
+                "ev_rush_ci_low": round(result["rush_ci_low"], 4),
+                "ev_rush_ci_high": round(result["rush_ci_high"], 4),
+                "ev_normal": round(result["normal"], 4),
+                "ev_normal_ci_low": round(result["normal_ci_low"], 4),
+                "ev_normal_ci_high": round(result["normal_ci_high"], 4),
+                "ev_gain": round(gain, 4),
+                "ev_gain_ci_low": round(result["difference_ci_low"], 4),
+                "ev_gain_ci_high": round(result["difference_ci_high"], 4),
+                "n_rush": result["n_rush"],
+                "n_normal": result["n_normal"],
+                "rush_is_optimal": bool(np.isfinite(gain) and gain > 0),
             }
         )
 
@@ -126,8 +129,14 @@ def collect(
         fieldnames=[
             "seconds_remaining",
             "ev_rush",
+            "ev_rush_ci_low",
+            "ev_rush_ci_high",
             "ev_normal",
+            "ev_normal_ci_low",
+            "ev_normal_ci_high",
             "ev_gain",
+            "ev_gain_ci_low",
+            "ev_gain_ci_high",
             "n_rush",
             "n_normal",
             "rush_is_optimal",
@@ -163,8 +172,14 @@ def plot(
 
     seconds = [r["seconds_remaining"] for r in sweep]
     ev_rush = [r["ev_rush"] * 100 for r in sweep]
+    ev_rush_low = [r["ev_rush_ci_low"] * 100 for r in sweep]
+    ev_rush_high = [r["ev_rush_ci_high"] * 100 for r in sweep]
     ev_normal = [r["ev_normal"] * 100 for r in sweep]
+    ev_normal_low = [r["ev_normal_ci_low"] * 100 for r in sweep]
+    ev_normal_high = [r["ev_normal_ci_high"] * 100 for r in sweep]
     ev_gain = [r["ev_gain"] * 100 for r in sweep]
+    ev_gain_low = np.array([r["ev_gain_ci_low"] * 100 for r in sweep])
+    ev_gain_high = np.array([r["ev_gain_ci_high"] * 100 for r in sweep])
 
     apply_plot_aesthetics()
 
@@ -172,12 +187,27 @@ def plot(
 
     ax1 = axes[0]
     ax1.plot(seconds, ev_rush, color="#E63946", linewidth=2.2, label="Rush (shoot now)")
+    ax1.fill_between(
+        seconds,
+        ev_rush_low,
+        ev_rush_high,
+        color="#E63946",
+        alpha=0.15,
+        label="95% game-clustered interval",
+    )
     ax1.plot(
         seconds,
         ev_normal,
         color="#457B9D",
         linewidth=2.2,
         label="Normal (full possession)",
+    )
+    ax1.fill_between(
+        seconds,
+        ev_normal_low,
+        ev_normal_high,
+        color="#457B9D",
+        alpha=0.15,
     )
     ax1.axhline(0, color="black", linewidth=0.8, linestyle="--", alpha=0.5)
     ax1.set_ylabel("Historical Win Percentage")
@@ -193,6 +223,23 @@ def plot(
     gain_arr = np.array(ev_gain)
     colors = np.where(gain_arr >= 0, "#2DC653", "#E63946")
     ax2.bar(seconds, gain_arr, color=colors, width=1.6, alpha=0.85)
+    finite = np.isfinite(gain_arr) & np.isfinite(ev_gain_low) & np.isfinite(
+        ev_gain_high
+    )
+    ax2.errorbar(
+        np.asarray(seconds)[finite],
+        gain_arr[finite],
+        yerr=np.vstack(
+            [
+                np.maximum(0, gain_arr[finite] - ev_gain_low[finite]),
+                np.maximum(0, ev_gain_high[finite] - gain_arr[finite]),
+            ]
+        ),
+        fmt="none",
+        ecolor="black",
+        capsize=3,
+        linewidth=1,
+    )
     ax2.axhline(0, color="black", linewidth=1.0)
     ax2.set_xlabel("Seconds Remaining in Period")
     ax2.set_ylabel("Historical Win % Gain from Rushing (pp)")
@@ -229,9 +276,13 @@ with the ball. We group those possessions by timing:
 - **Rush:** The shot occurs within five seconds of the target clock.
 - **Normal:** The shot occurs more than five seconds later.
 
-The saved sweep reports the possessing team's historical win percentage and
-the number of observations in each group. It is a descriptive association,
-not a causal estimate; team quality and game context are not adjusted for.
+The saved sweep reports the possessing team's historical win percentage,
+observation counts, and pointwise 95% uncertainty intervals. Each interval
+uses the wider limits from a game-cluster bootstrap and Wilson/Newcombe
+finite-sample bounds. Games are resampled as blocks so repeated clock values
+and overtime periods from the same game remain together. This is a descriptive
+association, not a causal estimate; team quality and game context are not
+adjusted for.
 
 ---
 
@@ -273,10 +324,12 @@ def generate_doc(
         and np.isfinite(row["ev_gain"])
     ]
     positive = sum(row["ev_gain"] > 0 for row in comparable)
+    clearly_positive = sum(row["ev_gain_ci_low"] > 0 for row in comparable)
     conclusion = (
         f"Rushing had the higher observed win rate at {positive} of "
-        f"{len(comparable)} comparable clock points. The result is mixed and "
-        "should not be interpreted as a causal effect."
+        f"{len(comparable)} comparable clock points. The 95% interval excluded "
+        f"zero in favor of rushing at {clearly_positive} points. The result is "
+        "mixed and should not be interpreted as a causal effect."
         if comparable
         else "There are not enough observations to compare the strategies."
     )

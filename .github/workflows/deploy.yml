@@ -29,10 +29,11 @@ jobs:
       - name: Install project package and dependencies
         run: uv sync
 
+      - name: Run tests
+        run: uv run pytest
+
       - name: Generate plots
-        run: |
-          uv run python -m src.generate_plots
-        continue-on-error: true   # Don't fail deploy if plot generation has issues
+        run: uv run python -m src.generate_plots
 
       - name: Build site
         run: uv run zensical build

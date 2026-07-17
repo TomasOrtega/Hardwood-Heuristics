@@ -21,9 +21,12 @@ We group possessions by:
 - **Play On:** The team's first action is a shot or turnover.
 
 Other first actions are excluded. We calculate the possessing team's historical
-win percentage and save observation counts for each group. This is descriptive:
-timeout availability, team quality, and why a coach stopped play are not
-controlled for.
+win percentage and save observation counts and pointwise 95% uncertainty
+intervals for each group. Each interval uses the wider limits from a
+game-cluster bootstrap and Wilson/Newcombe finite-sample bounds. Games are
+resampled as blocks so repeated clock values and overtime periods from one game
+remain together. This is descriptive: timeout availability, team quality, and
+why a coach stopped play are not controlled for.
 
 ---
 
@@ -35,4 +38,4 @@ controlled for.
 
 ## Conclusion
 
-Calling timeout had the higher observed win rate at 11 of 16 comparable clock points. This association does not show that the timeout itself caused the difference.
+Calling timeout had the higher observed win rate at 11 of 16 comparable clock points. The 95% interval excluded zero in favor of timeout at 0 points. This association does not show that the timeout itself caused the difference.

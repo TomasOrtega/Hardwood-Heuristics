@@ -20,7 +20,11 @@ from src.collect_data import (
     collect_theorem3,
 )
 from src.data_pipeline import build_synthetic_transitions
-from src.theorems.utils import get_resolved_possessions_at_time
+from src.theorems.utils import (
+    get_resolved_possessions_at_time,
+    get_resolved_possessions_at_times,
+    summarize_binary_comparison,
+)
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -114,6 +118,101 @@ def test_resolver_keeps_regulation_and_overtime_separate():
     assert resolved.loc[5, "action_taken"] == "shoot"
 
 
+def test_resolver_handles_a_clock_grid_in_one_result():
+    df = pd.DataFrame(
+        [
+            {
+                "game_id": "g1",
+                "period": 4,
+                "event_num": 1,
+                "seconds_remaining": 50,
+                "score_differential": 0,
+                "possession": 1,
+                "action_taken": "other",
+                "action_team": 1,
+                "game_outcome": 1,
+            },
+            {
+                "game_id": "g1",
+                "period": 4,
+                "event_num": 2,
+                "seconds_remaining": 20,
+                "score_differential": 2,
+                "possession": 1,
+                "action_taken": "shoot",
+                "action_team": 1,
+                "game_outcome": 1,
+            },
+        ]
+    )
+
+    grid = get_resolved_possessions_at_times(df, [30, 40])
+
+    assert set(grid["target_seconds"]) == {30, 40}
+    assert len(grid) == 2
+    assert (grid["action_taken"] == "shoot").all()
+
+
+def test_binary_comparison_has_clustered_confidence_intervals():
+    samples = pd.DataFrame(
+        [
+            {"game_id": "g1", "target_seconds": 10, "strategy": "a", "won": 1},
+            {"game_id": "g1", "target_seconds": 8, "strategy": "a", "won": 1},
+            {"game_id": "g2", "target_seconds": 10, "strategy": "a", "won": 0},
+            {"game_id": "g2", "target_seconds": 8, "strategy": "a", "won": 0},
+            {"game_id": "g3", "target_seconds": 10, "strategy": "b", "won": 1},
+            {"game_id": "g3", "target_seconds": 8, "strategy": "b", "won": 1},
+            {"game_id": "g4", "target_seconds": 10, "strategy": "b", "won": 0},
+            {"game_id": "g4", "target_seconds": 8, "strategy": "b", "won": 0},
+        ]
+    )
+
+    summary = summarize_binary_comparison(
+        samples,
+        target_values=[8, 10],
+        group_col="strategy",
+        outcome_col="won",
+        groups=("a", "b"),
+        n_resamples=200,
+        seed=7,
+    )
+
+    assert len(summary) == 2
+    for row in summary:
+        assert row["n_a"] == 2
+        assert row["n_b"] == 2
+        assert 0 <= row["a_ci_low"] <= row["a_ci_high"] <= 1
+        assert 0 <= row["b_ci_low"] <= row["b_ci_high"] <= 1
+        assert row["difference_ci_low"] <= row["difference_ci_high"]
+
+
+def test_binary_comparison_keeps_uncertainty_for_all_successes():
+    samples = pd.DataFrame(
+        [
+            {"game_id": f"a{i}", "target_seconds": 2, "strategy": "a", "won": 1}
+            for i in range(8)
+        ]
+        + [
+            {"game_id": f"b{i}", "target_seconds": 2, "strategy": "b", "won": i > 0}
+            for i in range(8)
+        ]
+    )
+
+    row = summarize_binary_comparison(
+        samples,
+        target_values=[2],
+        group_col="strategy",
+        outcome_col="won",
+        groups=("a", "b"),
+        n_resamples=200,
+        seed=8,
+    )[0]
+
+    assert row["a"] == 1
+    assert row["a_ci_low"] < 1
+    assert row["difference_ci_low"] < row["difference"]
+
+
 # ---------------------------------------------------------------------------
 # _collect_theorem1
 # ---------------------------------------------------------------------------
@@ -188,6 +287,8 @@ class TestCollectTheorem1:
         assert row["n_normal"] == 1
         assert row["ev_rush"] == 1
         assert row["ev_normal"] == 0
+        assert "ev_gain_ci_low" in row.index
+        assert "ev_gain_ci_high" in row.index
 
 
 class TestCollectTheorem2:
@@ -266,6 +367,8 @@ class TestCollectTheorem2:
         assert row["n_defend"] == 1
         assert row["ev_foul"] == 1
         assert row["ev_defend"] == 1
+        assert "ev_gain_ci_low" in row.index
+        assert "ev_gain_ci_high" in row.index
 
 
 # ---------------------------------------------------------------------------
@@ -293,6 +396,8 @@ class TestCollectTheorem3:
             assert "timeout_is_optimal" in entry
             assert "n_timeout" in entry
             assert "n_play_on" in entry
+            assert "ev_gain_ci_low" in entry
+            assert "ev_gain_ci_high" in entry
 
     def test_sweep_covers_20_to_50_seconds(self, tmp_path):
         _write_synthetic_transitions(tmp_path)

@@ -26,8 +26,9 @@ import numpy as np
 from src.theorems.utils import (
     apply_plot_aesthetics,
     FIGURE_DPI,
-    get_resolved_possessions_at_time,
+    get_resolved_possessions_at_times,
     load_sweep_csv,
+    summarize_binary_comparison,
     write_sweep_csv,
 )
 
@@ -76,53 +77,58 @@ def collect(
     df = _load_historical_log(processed_dir)
     logger.info("Computing Theorem 2 (Foul-Up-3) historical win rates…")
 
+    resolved = get_resolved_possessions_at_times(df, TIME_VALUES)
+    window = resolved[
+        ((resolved["score_differential"] == 3) & (resolved["possession"] == 0))
+        | (
+            (resolved["score_differential"] == -3)
+            & (resolved["possession"] == 1)
+        )
+    ].copy()
+    window["leader"] = np.where(window["score_differential"] > 0, 1, 0)
+    window["leader_won"] = np.where(
+        window["leader"] == 1,
+        window["game_outcome"],
+        1 - window["game_outcome"],
+    )
+    foul = (window["action_taken"] == "foul") & (
+        window["action_team"] == window["leader"]
+    )
+    defend = window["action_taken"].isin(["shoot", "turnover"]) & (
+        window["action_team"] == window["possession"]
+    )
+    window["strategy"] = np.select(
+        [foul, defend],
+        ["foul", "defend"],
+        default=None,
+    )
+
+    comparison = summarize_binary_comparison(
+        window,
+        target_values=TIME_VALUES,
+        group_col="strategy",
+        outcome_col="leader_won",
+        groups=("foul", "defend"),
+        seed=2,
+    )
     rows: List[Dict] = []
-
-    for sec in TIME_VALUES:
-        resolved = get_resolved_possessions_at_time(df, sec)
-        window = resolved[
-            ((resolved["score_differential"] == 3) & (resolved["possession"] == 0))
-            | (
-                (resolved["score_differential"] == -3)
-                & (resolved["possession"] == 1)
-            )
-        ].copy()
-        window["leader"] = np.where(window["score_differential"] > 0, 1, 0)
-        window["leader_won"] = np.where(
-            window["leader"] == 1,
-            window["game_outcome"],
-            1 - window["game_outcome"],
-        )
-
-        foul_outcomes = window.loc[
-            (window["action_taken"] == "foul")
-            & (window["action_team"] == window["leader"]),
-            "leader_won",
-        ]
-        defend_outcomes = window.loc[
-            window["action_taken"].isin(["shoot", "turnover"])
-            & (window["action_team"] == window["possession"]),
-            "leader_won",
-        ]
-        ev_foul = (
-            float(foul_outcomes.mean()) if not foul_outcomes.empty else float("nan")
-        )
-        ev_defend = (
-            float(defend_outcomes.mean())
-            if not defend_outcomes.empty
-            else float("nan")
-        )
-        ev_gain = ev_foul - ev_defend
-
+    for result in comparison:
+        gain = result["difference"]
         rows.append(
             {
-                "seconds_remaining": sec,
-                "ev_foul": round(ev_foul, 4),
-                "ev_defend": round(ev_defend, 4),
-                "ev_gain": round(ev_gain, 4),
-                "n_foul": len(foul_outcomes),
-                "n_defend": len(defend_outcomes),
-                "foul_is_better": bool(np.isfinite(ev_gain) and ev_gain > 0),
+                "seconds_remaining": result["target_seconds"],
+                "ev_foul": round(result["foul"], 4),
+                "ev_foul_ci_low": round(result["foul_ci_low"], 4),
+                "ev_foul_ci_high": round(result["foul_ci_high"], 4),
+                "ev_defend": round(result["defend"], 4),
+                "ev_defend_ci_low": round(result["defend_ci_low"], 4),
+                "ev_defend_ci_high": round(result["defend_ci_high"], 4),
+                "ev_gain": round(gain, 4),
+                "ev_gain_ci_low": round(result["difference_ci_low"], 4),
+                "ev_gain_ci_high": round(result["difference_ci_high"], 4),
+                "n_foul": result["n_foul"],
+                "n_defend": result["n_defend"],
+                "foul_is_better": bool(np.isfinite(gain) and gain > 0),
             }
         )
 
@@ -133,8 +139,14 @@ def collect(
         fieldnames=[
             "seconds_remaining",
             "ev_foul",
+            "ev_foul_ci_low",
+            "ev_foul_ci_high",
             "ev_defend",
+            "ev_defend_ci_low",
+            "ev_defend_ci_high",
             "ev_gain",
+            "ev_gain_ci_low",
+            "ev_gain_ci_high",
             "n_foul",
             "n_defend",
             "foul_is_better",
@@ -170,20 +182,41 @@ def plot(
 
     seconds = [row["seconds_remaining"] for row in sweep]
     ev_foul = [row["ev_foul"] * 100 for row in sweep]
+    ev_foul_low = [row["ev_foul_ci_low"] * 100 for row in sweep]
+    ev_foul_high = [row["ev_foul_ci_high"] * 100 for row in sweep]
     ev_defend = [row["ev_defend"] * 100 for row in sweep]
+    ev_defend_low = [row["ev_defend_ci_low"] * 100 for row in sweep]
+    ev_defend_high = [row["ev_defend_ci_high"] * 100 for row in sweep]
     ev_gain = [row["ev_gain"] * 100 for row in sweep]
+    ev_gain_low = np.array([row["ev_gain_ci_low"] * 100 for row in sweep])
+    ev_gain_high = np.array([row["ev_gain_ci_high"] * 100 for row in sweep])
 
     apply_plot_aesthetics()
 
     fig, axes = plt.subplots(2, 1, figsize=(10, 8), sharex=True)
     ax1 = axes[0]
     ax1.plot(seconds, ev_foul, color="#E63946", linewidth=2.2, label="Foul")
+    ax1.fill_between(
+        seconds,
+        ev_foul_low,
+        ev_foul_high,
+        color="#E63946",
+        alpha=0.15,
+        label="95% game-clustered interval",
+    )
     ax1.plot(
         seconds,
         ev_defend,
         color="#457B9D",
         linewidth=2.2,
         label="Defend",
+    )
+    ax1.fill_between(
+        seconds,
+        ev_defend_low,
+        ev_defend_high,
+        color="#457B9D",
+        alpha=0.15,
     )
     ax1.set_ylabel("Historical Win Percentage")
     ax1.set_title(
@@ -198,6 +231,23 @@ def plot(
     gain_arr = np.array(ev_gain)
     colors = np.where(gain_arr >= 0, "#2DC653", "#E63946")
     ax2.bar(seconds, gain_arr, color=colors, width=1.4, alpha=0.85)
+    finite = np.isfinite(gain_arr) & np.isfinite(ev_gain_low) & np.isfinite(
+        ev_gain_high
+    )
+    ax2.errorbar(
+        np.asarray(seconds)[finite],
+        gain_arr[finite],
+        yerr=np.vstack(
+            [
+                np.maximum(0, gain_arr[finite] - ev_gain_low[finite]),
+                np.maximum(0, ev_gain_high[finite] - gain_arr[finite]),
+            ]
+        ),
+        fmt="none",
+        ecolor="black",
+        capsize=3,
+        linewidth=1,
+    )
     ax2.axhline(0, color="black", linewidth=1.0)
     ax2.set_xlabel("Seconds Remaining")
     ax2.set_ylabel("Win % Gain from Fouling (pp)")
@@ -241,10 +291,13 @@ def generate_doc(
         and np.isfinite(row["ev_gain"])
     ]
     positive = sum(row["ev_gain"] > 0 for row in comparable)
+    clearly_positive = sum(row["ev_gain_ci_low"] > 0 for row in comparable)
     conclusion = (
         f"Fouling had the higher observed win rate at {positive} of "
-        f"{len(comparable)} comparable clock points. Sample sizes are small, "
-        "so the data do not establish that fouling causes better outcomes."
+        f"{len(comparable)} comparable clock points. The 95% interval excluded "
+        f"zero in favor of fouling at {clearly_positive} points. Sample sizes "
+        "are small, so the data do not establish that fouling causes better "
+        "outcomes."
         if comparable
         else "There are not enough observations to compare the strategies."
     )
@@ -268,8 +321,11 @@ the first logged action after the target clock is:
 - **Defend:** The trailing offense shoots or turns the ball over before a foul.
 
 Empty groups remain missing rather than being assigned a 50% win rate. The
-saved data include observation counts. This is a descriptive comparison and
-does not adjust for why coaches chose to foul.
+saved data include observation counts and pointwise 95% uncertainty intervals.
+Each interval uses the wider limits from a game-cluster bootstrap and
+Wilson/Newcombe finite-sample bounds. Resampling games as blocks keeps repeated
+clock values and overtime periods from the same game together. This is a
+descriptive comparison and does not adjust for why coaches chose to foul.
 
 ---
 
