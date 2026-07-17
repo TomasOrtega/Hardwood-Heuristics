@@ -8,29 +8,27 @@ logic for Theorem 2.  Results are persisted as CSV files under
 ``data/processed/`` so that plots can be reproduced without re-running the
 full data-collection pipeline.
 
-Saved files
------------
-* ``theorem2_grid.csv``          -- Win-rate-gain grid (foul - no-foul).
-* ``theorem2_wp_foul_grid.csv``  -- Historical win rate when fouling.
-* ``theorem2_wp_no_foul_grid.csv`` -- Historical win rate without fouling.
+Saved file
+----------
+* ``theorem2_sweep.csv`` -- Historical win-rate comparison by time remaining.
 """
 
 from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
-import seaborn as sns
 
 from src.theorems.utils import (
     apply_plot_aesthetics,
     FIGURE_DPI,
-    PALETTE,
     get_resolved_possessions_at_time,
+    load_sweep_csv,
+    write_sweep_csv,
 )
 
 matplotlib.use("Agg")
@@ -38,15 +36,11 @@ matplotlib.use("Agg")
 logger = logging.getLogger(__name__)
 
 # Output file names
-FIGURE_FILENAME = "foul_up_3_heatmap.svg"
+CSV_FILENAME = "theorem2_sweep.csv"
+FIGURE_FILENAME = "foul_up_3_curve.svg"
 DOC_FILENAME = "theorem2_foul_up_3.md"
 
-# Fixed parameter grids (hardcoded for reproducibility)
 TIME_VALUES: List[int] = list(range(2, 12, 2))
-FG3_VALUES: List[float] = [round(x, 2) for x in [0.25, 0.30, 0.35, 0.40, 0.45]]
-
-# Default win rate used when a bucket has no historical observations
-_DEFAULT_WIN_RATE = 0.5
 
 
 # ---------------------------------------------------------------------------
@@ -59,7 +53,11 @@ def collect(
     processed_dir: Optional[Path] = None,
 ) -> Path:
     """
-    Compute Theorem 2 (Foul-Up-3) historical win rates and save to CSV files.
+    Compute Theorem 2 (Foul-Up-3) historical win rates and save to CSV.
+
+    Includes both home and away teams leading by exactly three while the
+    trailing opponent has possession. A defensive foul is compared with a
+    normal-defense possession whose first action is a shot or turnover.
 
     Parameters
     ----------
@@ -68,7 +66,7 @@ def collect(
 
     Returns
     -------
-    Path to the saved gain-grid CSV.
+    Path to the saved time-sweep CSV.
     """
     if processed_dir is None:
         processed_dir = out_dir
@@ -78,98 +76,72 @@ def collect(
     df = _load_historical_log(processed_dir)
     logger.info("Computing Theorem 2 (Foul-Up-3) historical win rates…")
 
-    n_time = len(TIME_VALUES)
-    n_fg3 = len(FG3_VALUES)
-    grid = np.zeros((n_time, n_fg3))
-    wp_foul_grid = np.zeros((n_time, n_fg3))
-    wp_no_foul_grid = np.zeros((n_time, n_fg3))
+    rows: List[Dict] = []
 
-    for i, sec in enumerate(TIME_VALUES):
-        if df.empty:
-            for j in range(n_fg3):
-                wp_foul_grid[i, j] = _DEFAULT_WIN_RATE
-                wp_no_foul_grid[i, j] = _DEFAULT_WIN_RATE
-                grid[i, j] = 0.0
-            continue
-
+    for sec in TIME_VALUES:
         resolved = get_resolved_possessions_at_time(df, sec)
         window = resolved[
-            (resolved["score_differential"] == 3) & (resolved["possession"] == 0)
+            ((resolved["score_differential"] == 3) & (resolved["possession"] == 0))
+            | (
+                (resolved["score_differential"] == -3)
+                & (resolved["possession"] == 1)
+            )
+        ].copy()
+        window["leader"] = np.where(window["score_differential"] > 0, 1, 0)
+        window["leader_won"] = np.where(
+            window["leader"] == 1,
+            window["game_outcome"],
+            1 - window["game_outcome"],
+        )
+
+        foul_outcomes = window.loc[
+            (window["action_taken"] == "foul")
+            & (window["action_team"] == window["leader"]),
+            "leader_won",
         ]
+        defend_outcomes = window.loc[
+            window["action_taken"].isin(["shoot", "turnover"])
+            & (window["action_team"] == window["possession"]),
+            "leader_won",
+        ]
+        ev_foul = (
+            float(foul_outcomes.mean()) if not foul_outcomes.empty else float("nan")
+        )
+        ev_defend = (
+            float(defend_outcomes.mean())
+            if not defend_outcomes.empty
+            else float("nan")
+        )
+        ev_gain = ev_foul - ev_defend
 
-        for j, fg3 in enumerate(FG3_VALUES):
-            if window.empty or "opponent_fg3_pct" not in window.columns:
-                wp_foul = _DEFAULT_WIN_RATE
-                wp_no_foul = _DEFAULT_WIN_RATE
-            else:
-                fg3_bin = window[
-                    window["opponent_fg3_pct"].between(
-                        fg3 - 0.025, fg3 + 0.025, inclusive="both"
-                    )
-                ]
-                foul_outcomes = fg3_bin.loc[
-                    fg3_bin["action_taken"] == "foul", "game_outcome"
-                ]
-                no_foul_outcomes = fg3_bin.loc[
-                    fg3_bin["action_taken"] != "foul", "game_outcome"
-                ]
-
-                wp_foul = (
-                    float(foul_outcomes.mean())
-                    if len(foul_outcomes) > 0
-                    else _DEFAULT_WIN_RATE
-                )
-                wp_no_foul = (
-                    float(no_foul_outcomes.mean())
-                    if len(no_foul_outcomes) > 0
-                    else _DEFAULT_WIN_RATE
-                )
-
-            wp_foul_grid[i, j] = round(wp_foul, 4)
-            wp_no_foul_grid[i, j] = round(wp_no_foul, 4)
-            grid[i, j] = round(wp_foul - wp_no_foul, 4)
-
-    grid_path = out_dir / "theorem2_grid.csv"
-    np.savetxt(grid_path, grid, delimiter=",")
-    np.savetxt(out_dir / "theorem2_wp_foul_grid.csv", wp_foul_grid, delimiter=",")
-    np.savetxt(out_dir / "theorem2_wp_no_foul_grid.csv", wp_no_foul_grid, delimiter=",")
-    logger.info("Saved Theorem 2 grids to %s", out_dir)
-
-    return grid_path
-
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-
-def load_grids(processed_dir: Path):
-    """Load Theorem 2 CSV grids.  Returns (gain_grid, wp_foul_grid,
-    wp_no_foul_grid, time_values, fg3_values)."""
-    grid_path = processed_dir / "theorem2_grid.csv"
-    foul_path = processed_dir / "theorem2_wp_foul_grid.csv"
-    no_foul_path = processed_dir / "theorem2_wp_no_foul_grid.csv"
-
-    if not grid_path.exists():
-        raise FileNotFoundError(
-            f"Theorem 2 data not found at {grid_path}. "
-            "Run `python -m src.collect_data` first."
+        rows.append(
+            {
+                "seconds_remaining": sec,
+                "ev_foul": round(ev_foul, 4),
+                "ev_defend": round(ev_defend, 4),
+                "ev_gain": round(ev_gain, 4),
+                "n_foul": len(foul_outcomes),
+                "n_defend": len(defend_outcomes),
+                "foul_is_better": bool(np.isfinite(ev_gain) and ev_gain > 0),
+            }
         )
 
-    gain_grid = np.loadtxt(grid_path, delimiter=",")
-
-    if foul_path.exists() and no_foul_path.exists():
-        wp_foul_grid = np.loadtxt(foul_path, delimiter=",")
-        wp_no_foul_grid = np.loadtxt(no_foul_path, delimiter=",")
-    else:
-        logger.warning(
-            "Individual WP grids not found; reconstructing from gain grid. "
-            "Re-run `python -m src.collect_data` to cache them."
-        )
-        wp_foul_grid = np.full_like(gain_grid, 0.5)
-        wp_no_foul_grid = wp_foul_grid - gain_grid
-
-    return gain_grid, wp_foul_grid, wp_no_foul_grid, TIME_VALUES, FG3_VALUES
+    out_path = out_dir / CSV_FILENAME
+    write_sweep_csv(
+        out_path,
+        rows,
+        fieldnames=[
+            "seconds_remaining",
+            "ev_foul",
+            "ev_defend",
+            "ev_gain",
+            "n_foul",
+            "n_defend",
+            "foul_is_better",
+        ],
+    )
+    logger.info("Saved Theorem 2 sweep to %s", out_path)
+    return out_path
 
 
 # ---------------------------------------------------------------------------
@@ -182,63 +154,60 @@ def plot(
     images_dir: Path,
 ) -> Path:
     """
-    Generate the Foul-Up-3 heatmap from CSV data.
+    Generate the Foul-Up-3 win-rate curve from CSV data.
 
     Parameters
     ----------
-    processed_dir : directory containing the Theorem 2 CSV files.
+    processed_dir : directory containing ``theorem2_sweep.csv``.
     images_dir    : directory where the SVG will be saved.
 
     Returns
     -------
     Path to the saved SVG file.
     """
-    gain_grid, _wf, _wn, time_values, fg3_values = load_grids(processed_dir)
+    sweep = load_sweep_csv(processed_dir / CSV_FILENAME)
     out_path = images_dir / FIGURE_FILENAME
 
-    display_grid = gain_grid * 100
-    x_labels = [f"{v:.0%}" for v in fg3_values]
-    y_labels = [f"{t}s" for t in time_values]
+    seconds = [row["seconds_remaining"] for row in sweep]
+    ev_foul = [row["ev_foul"] * 100 for row in sweep]
+    ev_defend = [row["ev_defend"] * 100 for row in sweep]
+    ev_gain = [row["ev_gain"] * 100 for row in sweep]
 
     apply_plot_aesthetics()
 
-    fig, ax = plt.subplots(figsize=(10, 6))
-    sns.heatmap(
-        display_grid,
-        ax=ax,
-        xticklabels=x_labels,
-        yticklabels=y_labels,
-        cmap=PALETTE,
-        center=0.0,
-        annot=True,
-        fmt=".1f",
-        linewidths=0.4,
-        linecolor="white",
-        cbar_kws={"label": "Historical Win % Gain from Fouling (pp)", "shrink": 0.85},
+    fig, axes = plt.subplots(2, 1, figsize=(10, 8), sharex=True)
+    ax1 = axes[0]
+    ax1.plot(seconds, ev_foul, color="#E63946", linewidth=2.2, label="Foul")
+    ax1.plot(
+        seconds,
+        ev_defend,
+        color="#457B9D",
+        linewidth=2.2,
+        label="Defend",
     )
-    ax.set_title(
+    ax1.set_ylabel("Historical Win Percentage")
+    ax1.set_title(
         "Theorem 2: Foul Up 3\n"
-        "Historical Win % Gain from Intentional Foul vs. Normal Defense",
+        "Historical Win Percentage: Intentional Foul vs. Normal Defense",
         fontweight="bold",
-        pad=16,
     )
-    ax.set_xlabel("Opponent 3-Point Field Goal %", labelpad=10)
-    ax.set_ylabel("Seconds Remaining", labelpad=10)
-    ax.text(
-        0.5,
-        -0.14,
-        "Green = Fouling is better  |  Red = Normal defense is better  |  "
-        "Values in percentage points",
-        ha="center",
-        va="center",
-        transform=ax.transAxes,
-        fontsize=9,
-        color="gray",
-    )
+    ax1.legend(loc="best")
+    ax1.grid(True, alpha=0.3)
+
+    ax2 = axes[1]
+    gain_arr = np.array(ev_gain)
+    colors = np.where(gain_arr >= 0, "#2DC653", "#E63946")
+    ax2.bar(seconds, gain_arr, color=colors, width=1.4, alpha=0.85)
+    ax2.axhline(0, color="black", linewidth=1.0)
+    ax2.set_xlabel("Seconds Remaining")
+    ax2.set_ylabel("Win % Gain from Fouling (pp)")
+    ax2.set_title("Foul - Defend (green = higher observed foul win rate)")
+    ax2.grid(True, alpha=0.3, axis="y")
+
     plt.tight_layout()
     fig.savefig(out_path, dpi=FIGURE_DPI, bbox_inches="tight")
     plt.close(fig)
-    logger.info("Saved Theorem 2 heatmap to %s", out_path)
+    logger.info("Saved Theorem 2 curve to %s", out_path)
     return out_path
 
 
@@ -252,46 +221,67 @@ def generate_doc(
     docs_dir: Path,
 ) -> Path:
     """
-    Write the Theorem 2 Markdown documentation.
-
-    The content is static; this function simply ensures the doc file is
-    present under *docs_dir* so that the site build finds it.
+    Write Theorem 2 documentation derived from its sweep data.
 
     Parameters
     ----------
-    processed_dir : reserved for API compatibility with other theorem modules.
+    processed_dir : directory containing ``theorem2_sweep.csv``.
     docs_dir      : directory where the Markdown file will be written.
 
     Returns
     -------
     Path to the written Markdown file.
     """
-    content = """\
+    sweep = load_sweep_csv(processed_dir / CSV_FILENAME)
+    comparable = [
+        row
+        for row in sweep
+        if row["n_foul"] > 0
+        and row["n_defend"] > 0
+        and np.isfinite(row["ev_gain"])
+    ]
+    positive = sum(row["ev_gain"] > 0 for row in comparable)
+    conclusion = (
+        f"Fouling had the higher observed win rate at {positive} of "
+        f"{len(comparable)} comparable clock points. Sample sizes are small, "
+        "so the data do not establish that fouling causes better outcomes."
+        if comparable
+        else "There are not enough observations to compare the strategies."
+    )
+    content = f"""\
 # Theorem 2: Foul Up 3
 
 ## Claim
 
-> **When leading by 3 with fewer than 12 seconds left, intentionally fouling
-> is better against average-to-good 3PT shooters and worse against
-> poor shooters.**
+> **When leading by three with fewer than 12 seconds left, is intentionally
+> fouling better than defending normally?**
+
+---
+
+## How We Measure It
+
+For both home and away teams, we select situations where the leading team is
+up exactly three and the trailing team has the ball. A sample is retained when
+the first logged action after the target clock is:
+
+- **Foul:** The leading team commits the foul.
+- **Defend:** The trailing offense shoots or turns the ball over before a foul.
+
+Empty groups remain missing rather than being assigned a 50% win rate. The
+saved data include observation counts. This is a descriptive comparison and
+does not adjust for why coaches chose to foul.
 
 ---
 
 ## Results
 
-![Foul Up 3 Heatmap](assets/images/foul_up_3_heatmap.svg)
-
-Green cells show situations where fouling improved the historical win rate;
-red cells show where normal defense was better.
-Each cell value is the win-percentage gain (in percentage points) from fouling
-versus playing normal defense, based on NBA play-by-play data (2019--2024).
+![Foul Up 3 Curve](assets/images/foul_up_3_curve.svg)
 
 ---
 
 ## Conclusion
 
-Foul the opponent when they are a competent 3PT shooting team (≥ 40%).
-Against poor 3PT teams, normal defense remains the safer choice.
+{conclusion}
 
 """
 

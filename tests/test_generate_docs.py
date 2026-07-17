@@ -10,9 +10,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import numpy as np
-import pytest
-
 from src.generate_docs import (
     generate_all_docs,
     _generate_theorem1_doc,
@@ -36,7 +33,7 @@ def _make_sweep(
     all others get negative ev_gain.
     """
     if time_range is None:
-        time_range = list(range(10, 65, 2))
+        time_range = list(range(30, 41, 2))
     results = []
     for s in time_range:
         rush = 0.62 if s >= positive_from else 0.40
@@ -47,6 +44,9 @@ def _make_sweep(
                 "ev_rush": rush,
                 "ev_normal": normal,
                 "ev_gain": rush - normal,
+                "n_rush": 12,
+                "n_normal": 14,
+                "rush_is_optimal": rush > normal,
             }
         )
     return results
@@ -61,6 +61,8 @@ def _write_theorem1_data(tmp_path: Path, sweep: list[dict]) -> None:
         "ev_rush",
         "ev_normal",
         "ev_gain",
+        "n_rush",
+        "n_normal",
         "rush_is_optimal",
     ]
     with open(tmp_path / "theorem1_sweep.csv", "w", newline="") as fh:
@@ -97,6 +99,8 @@ def _make_theorem3_sweep(
                 "ev_timeout": ev_timeout,
                 "ev_play_on": ev_play_on,
                 "ev_gain": ev_timeout - ev_play_on,
+                "n_timeout": 8,
+                "n_play_on": 20,
                 "timeout_is_optimal": ev_timeout > ev_play_on,
             }
         )
@@ -112,6 +116,8 @@ def _write_theorem3_data(tmp_path: Path, sweep: list[dict]) -> None:
         "ev_timeout",
         "ev_play_on",
         "ev_gain",
+        "n_timeout",
+        "n_play_on",
         "timeout_is_optimal",
     ]
     with open(tmp_path / "theorem3_sweep.csv", "w", newline="") as fh:
@@ -121,31 +127,26 @@ def _write_theorem3_data(tmp_path: Path, sweep: list[dict]) -> None:
             writer.writerow({k: row[k] for k in fieldnames if k in row})
 
 
-def _write_theorem2_data(
-    tmp_path: Path,
-    time_values: list[int] | None = None,
-    fg3_values: list[float] | None = None,
-    gain_offset: float = 0.0,
-) -> None:
+def _write_theorem2_data(tmp_path: Path, gain_offset: float = 0.0) -> None:
     """Write Theorem 2 processed data files to tmp_path."""
-    if time_values is None:
-        time_values = [2, 4, 6, 8, 10]
-    if fg3_values is None:
-        fg3_values = [0.25, 0.30, 0.35, 0.40, 0.45]
+    rows = []
+    for seconds in [2, 4, 6, 8, 10]:
+        ev_foul = 0.8
+        ev_defend = 0.7 - gain_offset
+        rows.append(
+            {
+                "seconds_remaining": seconds,
+                "ev_foul": ev_foul,
+                "ev_defend": ev_defend,
+                "ev_gain": ev_foul - ev_defend,
+                "n_foul": 6,
+                "n_defend": 15,
+                "foul_is_better": ev_foul > ev_defend,
+            }
+        )
+    import pandas as pd
 
-    n_t, n_f = len(time_values), len(fg3_values)
-    # gain increases with fg3_pct; may be shifted by gain_offset
-    gain_grid = np.array(
-        [[gain_offset + 0.05 + j * 0.01 for j in range(n_f)] for _ in range(n_t)]
-    )
-    wp_foul_grid = np.full((n_t, n_f), 0.90)
-    wp_no_foul_grid = wp_foul_grid - gain_grid
-
-    np.savetxt(tmp_path / "theorem2_grid.csv", gain_grid, delimiter=",")
-    np.savetxt(tmp_path / "theorem2_wp_foul_grid.csv", wp_foul_grid, delimiter=",")
-    np.savetxt(
-        tmp_path / "theorem2_wp_no_foul_grid.csv", wp_no_foul_grid, delimiter=","
-    )
+    pd.DataFrame(rows).to_csv(tmp_path / "theorem2_sweep.csv", index=False)
 
 
 # ---------------------------------------------------------------------------
@@ -182,21 +183,26 @@ class TestGenerateTheorem1Doc:
 # ---------------------------------------------------------------------------
 class TestGenerateTheorem2Doc:
     def test_file_created(self, tmp_path):
+        _write_theorem2_data(tmp_path)
         out = _generate_theorem2_doc(processed_dir=tmp_path, docs_dir=tmp_path)
         assert out.exists()
         assert out.stat().st_size > 100
 
     def test_contains_figure(self, tmp_path):
+        _write_theorem2_data(tmp_path)
         _generate_theorem2_doc(processed_dir=tmp_path, docs_dir=tmp_path)
         content = (tmp_path / "theorem2_foul_up_3.md").read_text()
-        assert "foul_up_3_heatmap.svg" in content
+        assert "foul_up_3_curve.svg" in content
 
     def test_contains_conclusion(self, tmp_path):
+        _write_theorem2_data(tmp_path)
         _generate_theorem2_doc(processed_dir=tmp_path, docs_dir=tmp_path)
         content = (tmp_path / "theorem2_foul_up_3.md").read_text()
         assert "## Conclusion" in content
+        assert "5 of 5 comparable clock points" in content
 
     def test_returns_path(self, tmp_path):
+        _write_theorem2_data(tmp_path)
         result = _generate_theorem2_doc(processed_dir=tmp_path, docs_dir=tmp_path)
         assert isinstance(result, Path)
         assert result.name == "theorem2_foul_up_3.md"

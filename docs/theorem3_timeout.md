@@ -2,8 +2,8 @@
 
 ## Claim
 
-> **Calling a timeout when trailing by 1--3 (or tied) with less than 50 seconds is
-> beneficial.**
+> **When trailing by up to three points (or tied), is calling a timeout better
+> than playing on with 20--50 seconds remaining?**
 
 ---
 
@@ -11,17 +11,19 @@
 
 We filter the historical play-by-play log for situations where:
 
-- The home team has possession
-- The score differential is between -3 and 0 (trailing by up to 3, or tied)
+- Either the home or away team has possession
+- That team is trailing by up to 3 points, or tied
 - Between 20 and 50 seconds remain
 
 We group possessions by:
 
 - **Timeout:** The team stops play with a timeout call.
-- **Play On:** The team continues without calling a timeout.
+- **Play On:** The team's first action is a shot or turnover.
 
-We then calculate the **historical win percentage** for the home team in
-each group across a sweep of time-remaining values.
+Other first actions are excluded. We calculate the possessing team's historical
+win percentage and save observation counts for each group. This is descriptive:
+timeout availability, team quality, and why a coach stopped play are not
+controlled for.
 
 ---
 
@@ -33,4 +35,4 @@ each group across a sweep of time-remaining values.
 
 ## Conclusion
 
-With 36--50 seconds remaining, calling a timeout is historically beneficial.
+Calling timeout had the higher observed win rate at 11 of 16 comparable clock points. This association does not show that the timeout itself caused the difference.

@@ -36,8 +36,7 @@ CSV_FILENAME = "theorem1_sweep.csv"
 FIGURE_FILENAME = "two_for_one_ev_curve.svg"
 DOC_FILENAME = "theorem1_two_for_one.md"
 
-# Default win rate used when a bucket has no historical observations
-_DEFAULT_WIN_RATE = 0.5
+RUSH_THRESHOLD_SECONDS = 5
 
 
 # ---------------------------------------------------------------------------
@@ -52,9 +51,10 @@ def collect(
     """
     Compute Theorem 1 (2-for-1) historical win rates and save to CSV.
 
-    Filters the historical log for tied games and groups possessions by
-    whether the team shot ('shoot') or held the ball.  Saves a
-    ``theorem1_sweep.csv`` to *out_dir*.
+    At each clock value from 30--40 seconds, filters for tied games and keeps
+    possessions whose next event is a shot by the team with the ball. Shots
+    within five seconds are classified as rush attempts; later shots are
+    classified as normal possessions.
 
     Parameters
     ----------
@@ -76,31 +76,34 @@ def collect(
 
     rows: List[Dict] = []
 
-    for sec in range(10, 41, 2):
-        if df.empty:
-            rows.append(
-                {
-                    "seconds_remaining": sec,
-                    "ev_rush": _DEFAULT_WIN_RATE,
-                    "ev_normal": _DEFAULT_WIN_RATE,
-                    "ev_gain": 0.0,
-                    "rush_is_optimal": False,
-                }
-            )
-            continue
-
+    for sec in range(30, 41, 2):
         resolved = get_resolved_possessions_at_time(df, sec)
-        window = resolved[
-            (resolved["score_differential"] == 0) & (resolved["possession"] == 1)
+        window = resolved[resolved["score_differential"] == 0].copy()
+        window = window[
+            (window["action_taken"] == "shoot")
+            & (window["action_team"] == window["possession"])
+        ].copy()
+        window["team_won"] = np.where(
+            window["possession"] == 1,
+            window["game_outcome"],
+            1 - window["game_outcome"],
+        )
+        rush_outcomes = window.loc[
+            window["action_delay"] <= RUSH_THRESHOLD_SECONDS,
+            "team_won",
         ]
-        rush_outcomes = window.loc[window["action_taken"] == "shoot", "game_outcome"]
-        hold_outcomes = window.loc[window["action_taken"] != "shoot", "game_outcome"]
+        normal_outcomes = window.loc[
+            window["action_delay"] > RUSH_THRESHOLD_SECONDS,
+            "team_won",
+        ]
 
         ev_rush = (
-            float(rush_outcomes.mean()) if len(rush_outcomes) > 0 else _DEFAULT_WIN_RATE
+            float(rush_outcomes.mean()) if not rush_outcomes.empty else float("nan")
         )
         ev_normal = (
-            float(hold_outcomes.mean()) if len(hold_outcomes) > 0 else _DEFAULT_WIN_RATE
+            float(normal_outcomes.mean())
+            if not normal_outcomes.empty
+            else float("nan")
         )
         ev_gain = ev_rush - ev_normal
 
@@ -110,7 +113,9 @@ def collect(
                 "ev_rush": round(ev_rush, 4),
                 "ev_normal": round(ev_normal, 4),
                 "ev_gain": round(ev_gain, 4),
-                "rush_is_optimal": ev_gain > 0,
+                "n_rush": len(rush_outcomes),
+                "n_normal": len(normal_outcomes),
+                "rush_is_optimal": bool(np.isfinite(ev_gain) and ev_gain > 0),
             }
         )
 
@@ -123,6 +128,8 @@ def collect(
             "ev_rush",
             "ev_normal",
             "ev_gain",
+            "n_rush",
+            "n_normal",
             "rush_is_optimal",
         ],
     )
@@ -187,7 +194,7 @@ def plot(
     colors = np.where(gain_arr >= 0, "#2DC653", "#E63946")
     ax2.bar(seconds, gain_arr, color=colors, width=1.6, alpha=0.85)
     ax2.axhline(0, color="black", linewidth=1.0)
-    ax2.set_xlabel("Seconds Remaining in Possession")
+    ax2.set_xlabel("Seconds Remaining in Period")
     ax2.set_ylabel("Historical Win % Gain from Rushing (pp)")
     ax2.set_title("Win % Gain: Rush - Normal  (green = rushing is better)")
     ax2.grid(True, alpha=0.3, axis="y")
@@ -208,19 +215,23 @@ _TEMPLATE = """\
 
 ## Claim
 
-> **Rushing a shot in tied games is beneficial when there is more than one possession remaining.**
+> **Does taking a quick shot in a tied game improve the chance of winning when
+> 30--40 seconds remain?**
 
 ---
 
 ## How We Measure It
 
-We filter the historical play-by-play log for tied games **where the home team has possession** and group each possession by strategy:
+At each clock value from 30 to 40 seconds, we filter for tied games and include
+both home and away possessions whose next logged event is a shot by the team
+with the ball. We group those possessions by timing:
 
-- **Rush (shoot):** The possessing team takes a shot attempt.
-- **Normal (hold):** The possessing team holds the ball (any non-shooting action).
+- **Rush:** The shot occurs within five seconds of the target clock.
+- **Normal:** The shot occurs more than five seconds later.
 
-We calculate the **historical win percentage** for each group — the fraction
-of games where the home team went on to win given that choice.
+The saved sweep reports the possessing team's historical win percentage and
+the number of observations in each group. It is a descriptive association,
+not a causal estimate; team quality and game context are not adjusted for.
 
 ---
 
@@ -253,9 +264,23 @@ def generate_doc(
     Path to the written Markdown file.
     """
 
-    content = _TEMPLATE.format(
-        conclusion="The 2-for-1 shows a positive signal for most of the analyzed time range.",
+    sweep = load_sweep_csv(processed_dir / CSV_FILENAME)
+    comparable = [
+        row
+        for row in sweep
+        if row["n_rush"] > 0
+        and row["n_normal"] > 0
+        and np.isfinite(row["ev_gain"])
+    ]
+    positive = sum(row["ev_gain"] > 0 for row in comparable)
+    conclusion = (
+        f"Rushing had the higher observed win rate at {positive} of "
+        f"{len(comparable)} comparable clock points. The result is mixed and "
+        "should not be interpreted as a causal effect."
+        if comparable
+        else "There are not enough observations to compare the strategies."
     )
+    content = _TEMPLATE.format(conclusion=conclusion)
 
     out_path = docs_dir / DOC_FILENAME
     out_path.write_text(content, encoding="utf-8")

@@ -20,9 +20,7 @@ Adding a new theorem
 Saved artefacts (written to ``data/processed/``)
 -------------------------------------------------
 * ``theorem1_sweep.csv``           -- Historical win-rate sweep for Theorem 1 (2-for-1).
-* ``theorem2_grid.csv``            -- Win-rate-gain grid for Theorem 2 (Foul-Up-3).
-* ``theorem2_wp_foul_grid.csv``    -- Historical win rate when fouling (per cell).
-* ``theorem2_wp_no_foul_grid.csv`` -- Historical win rate without fouling (per cell).
+* ``theorem2_sweep.csv``           -- Historical win-rate sweep for Theorem 2 (Foul-Up-3).
 * ``theorem3_sweep.csv``           -- Historical win-rate sweep for Theorem 3 (Late-Game Timeout).
 """
 
@@ -37,10 +35,6 @@ import pandas as pd
 logger = logging.getLogger(__name__)
 
 PROCESSED_DIR = Path(__file__).parent.parent / "data" / "processed"
-
-# Default win rate used when a bucket has no historical observations
-_DEFAULT_WIN_RATE = 0.5
-
 
 def _load_historical_log(processed_dir: Path) -> pd.DataFrame:
     """
@@ -87,7 +81,7 @@ def _collect_theorem2(
     processed_dir: Optional[Path] = None,
 ) -> Path:
     """
-    Compute Theorem 2 (Foul-Up-3) historical win rates and save grids.
+    Compute Theorem 2 (Foul-Up-3) historical win rates and save its sweep.
 
     Delegates to :func:`src.theorems.theorem2.collect`.
     """

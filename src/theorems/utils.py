@@ -92,17 +92,18 @@ def load_sweep_csv(csv_path: Path) -> List[Dict]:
 
 
 def get_resolved_possessions_at_time(df: pd.DataFrame, target_sec: int) -> pd.DataFrame:
-    """Return one resolved possession row per game at *target_sec*.
+    """Return one resolved decision per game-period at *target_sec*.
 
     Uses ``pd.merge_asof`` (temporal join) to avoid the survivorship bias
     introduced by a fixed time-window filter.  Play-by-play data only logs
     discrete events, so a window filter silently misses possessions where the
     clock ran without an event.  ``merge_asof`` instead:
 
-    * looks *backward* to get the most recent game state (score, possession,
-      opponent 3PT%) at or just before *target_sec*, and
-    * looks *forward* to get the very first action taken at or after
+    * looks *backward* to get the score immediately before *target_sec*, and
+    * looks *forward* to get the possessing team and first action at or after
       *target_sec*.
+
+    Regulation and overtime periods are separate decision opportunities.
 
     Parameters
     ----------
@@ -111,55 +112,72 @@ def get_resolved_possessions_at_time(df: pd.DataFrame, target_sec: int) -> pd.Da
 
     Returns
     -------
-    DataFrame with one row per game that has a resolved action, containing
-    columns: ``game_id``, ``elapsed_time``, ``score_differential``,
-    ``possession``, ``opponent_fg3_pct``, ``action_taken``, ``game_outcome``.
-    Games with no logged action at or after *target_sec* are excluded.
+    DataFrame with one row per game-period that has both a prior score and a
+    subsequent action. ``action_delay`` is the number of seconds from the
+    target clock to that action.
     """
     work = df.copy()
+    if "period" not in work.columns:
+        work["period"] = 4
+    if "event_num" not in work.columns:
+        work["event_num"] = np.arange(len(work))
+    if "action_team" not in work.columns:
+        work["action_team"] = pd.NA
+
     work["elapsed_time"] = _PERIOD_SECONDS - work["seconds_remaining"]
-    work = work.sort_values("elapsed_time").reset_index(drop=True)
+    group_cols = ["game_id", "period"]
+    work = work.sort_values(
+        ["elapsed_time", *group_cols, "event_num"],
+        kind="stable",
+    ).reset_index(drop=True)
 
     target_elapsed = _PERIOD_SECONDS - target_sec
+    target_df = work[group_cols].drop_duplicates()
+    target_df["elapsed_time"] = target_elapsed
+    target_df = target_df.sort_values(
+        ["elapsed_time", *group_cols],
+        kind="stable",
+    )
 
-    target_df = pd.DataFrame(
-        {
-            "game_id": work["game_id"].unique(),
-            "elapsed_time": target_elapsed,
-        }
-    ).sort_values("elapsed_time")
-
-    state_cols = [
-        "game_id",
-        "elapsed_time",
-        "score_differential",
-        "possession",
-        "opponent_fg3_pct",
-    ]
+    state_cols = [*group_cols, "elapsed_time", "score_differential"]
     backward = pd.merge_asof(
         target_df,
         work[state_cols],
         on="elapsed_time",
-        by="game_id",
+        by=group_cols,
         direction="backward",
+        allow_exact_matches=False,
     )
 
-    action_cols = ["game_id", "elapsed_time", "action_taken", "game_outcome"]
+    action_cols = [
+        *group_cols,
+        "elapsed_time",
+        "event_num",
+        "possession",
+        "action_taken",
+        "action_team",
+        "game_outcome",
+    ]
+    actions = work[action_cols].copy()
+    actions["action_elapsed_time"] = actions["elapsed_time"]
     forward = pd.merge_asof(
         target_df,
-        work[action_cols],
+        actions,
         on="elapsed_time",
-        by="game_id",
+        by=group_cols,
         direction="forward",
     )
 
     result = backward.merge(
-        forward[["game_id", "action_taken", "game_outcome"]],
-        on="game_id",
-        how="left",
+        forward.drop(columns="score_differential", errors="ignore"),
+        on=[*group_cols, "elapsed_time"],
+        how="inner",
     )
-
-    result = result.dropna(subset=["action_taken"])
+    result["action_delay"] = result["action_elapsed_time"] - result["elapsed_time"]
+    result["action_seconds_remaining"] = (
+        _PERIOD_SECONDS - result["action_elapsed_time"]
+    )
+    result = result.dropna(subset=["score_differential", "action_taken"])
     return result
 
 

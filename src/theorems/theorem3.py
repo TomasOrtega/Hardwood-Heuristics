@@ -36,10 +36,6 @@ CSV_FILENAME = "theorem3_sweep.csv"
 FIGURE_FILENAME = "timeout_ev_curve.svg"
 DOC_FILENAME = "theorem3_timeout.md"
 
-# Default win rate used when a bucket has no historical observations
-_DEFAULT_WIN_RATE = 0.5
-
-
 # ---------------------------------------------------------------------------
 # Data collection
 # ---------------------------------------------------------------------------
@@ -52,10 +48,10 @@ def collect(
     """
     Compute Theorem 3 (Late-Game Timeout) historical win rates and save to CSV.
 
-    Filters the historical log for close games where the home team has
-    possession and is trailing by 1--3 points or tied, with 20--50 seconds
-    remaining.  Groups possessions by whether the team called a timeout or
-    played on, and saves ``theorem3_sweep.csv`` to *out_dir*.
+    Filters the historical log for home or away teams with possession while
+    trailing by 1--3 points or tied. The first action is classified as a
+    timeout only when called by the possessing team, or as playing on when
+    that team shoots or turns the ball over.
 
     Parameters
     ----------
@@ -78,39 +74,38 @@ def collect(
     rows: List[Dict] = []
 
     for sec in range(20, 51, 2):
-        if df.empty:
-            rows.append(
-                {
-                    "seconds_remaining": sec,
-                    "ev_timeout": _DEFAULT_WIN_RATE,
-                    "ev_play_on": _DEFAULT_WIN_RATE,
-                    "ev_gain": 0.0,
-                    "timeout_is_optimal": False,
-                }
-            )
-            continue
-
         resolved = get_resolved_possessions_at_time(df, sec)
-        window = resolved[
-            (resolved["score_differential"].between(-3, 0))
-            & (resolved["possession"] == 1)
-        ]
+        resolved["possessing_margin"] = np.where(
+            resolved["possession"] == 1,
+            resolved["score_differential"],
+            -resolved["score_differential"],
+        )
+        window = resolved[resolved["possessing_margin"].between(-3, 0)].copy()
+        window["team_won"] = np.where(
+            window["possession"] == 1,
+            window["game_outcome"],
+            1 - window["game_outcome"],
+        )
         timeout_outcomes = window.loc[
-            window["action_taken"] == "timeout", "game_outcome"
+            (window["action_taken"] == "timeout")
+            & (window["action_team"] == window["possession"]),
+            "team_won",
         ]
         play_on_outcomes = window.loc[
-            window["action_taken"] != "timeout", "game_outcome"
+            window["action_taken"].isin(["shoot", "turnover"])
+            & (window["action_team"] == window["possession"]),
+            "team_won",
         ]
 
         ev_timeout = (
             float(timeout_outcomes.mean())
-            if len(timeout_outcomes) > 0
-            else _DEFAULT_WIN_RATE
+            if not timeout_outcomes.empty
+            else float("nan")
         )
         ev_play_on = (
             float(play_on_outcomes.mean())
-            if len(play_on_outcomes) > 0
-            else _DEFAULT_WIN_RATE
+            if not play_on_outcomes.empty
+            else float("nan")
         )
         ev_gain = ev_timeout - ev_play_on
 
@@ -120,7 +115,9 @@ def collect(
                 "ev_timeout": round(ev_timeout, 4),
                 "ev_play_on": round(ev_play_on, 4),
                 "ev_gain": round(ev_gain, 4),
-                "timeout_is_optimal": ev_gain > 0,
+                "n_timeout": len(timeout_outcomes),
+                "n_play_on": len(play_on_outcomes),
+                "timeout_is_optimal": bool(np.isfinite(ev_gain) and ev_gain > 0),
             }
         )
 
@@ -133,6 +130,8 @@ def collect(
             "ev_timeout",
             "ev_play_on",
             "ev_gain",
+            "n_timeout",
+            "n_play_on",
             "timeout_is_optimal",
         ],
     )
@@ -221,8 +220,8 @@ _TEMPLATE = """\
 
 ## Claim
 
-> **Calling a timeout when trailing by 1--3 (or tied) with less than 50 seconds is
-> beneficial.**
+> **When trailing by up to three points (or tied), is calling a timeout better
+> than playing on with 20--50 seconds remaining?**
 
 ---
 
@@ -230,17 +229,19 @@ _TEMPLATE = """\
 
 We filter the historical play-by-play log for situations where:
 
-- The home team has possession
-- The score differential is between -3 and 0 (trailing by up to 3, or tied)
+- Either the home or away team has possession
+- That team is trailing by up to 3 points, or tied
 - Between 20 and 50 seconds remain
 
 We group possessions by:
 
 - **Timeout:** The team stops play with a timeout call.
-- **Play On:** The team continues without calling a timeout.
+- **Play On:** The team's first action is a shot or turnover.
 
-We then calculate the **historical win percentage** for the home team in
-each group across a sweep of time-remaining values.
+Other first actions are excluded. We calculate the possessing team's historical
+win percentage and save observation counts for each group. This is descriptive:
+timeout availability, team quality, and why a coach stopped play are not
+controlled for.
 
 ---
 
@@ -273,8 +274,21 @@ def generate_doc(
     Path to the written Markdown file.
     """
 
+    sweep = load_sweep_csv(processed_dir / CSV_FILENAME)
+    comparable = [
+        row
+        for row in sweep
+        if row["n_timeout"] > 0
+        and row["n_play_on"] > 0
+        and np.isfinite(row["ev_gain"])
+    ]
+    positive = sum(row["ev_gain"] > 0 for row in comparable)
     conclusion = (
-        "With 36--50 seconds remaining, calling a timeout is historically beneficial."
+        f"Calling timeout had the higher observed win rate at {positive} of "
+        f"{len(comparable)} comparable clock points. This association does not "
+        "show that the timeout itself caused the difference."
+        if comparable
+        else "There are not enough observations to compare the strategies."
     )
 
     content = _TEMPLATE.format(

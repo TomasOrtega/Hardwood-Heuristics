@@ -17,7 +17,6 @@ from src.data_pipeline import (
     PlayByPlayParser,
     build_synthetic_transitions,
     FINAL_PERIOD_SECONDS,
-    MAX_FOULS_TO_GIVE,
 )
 
 
@@ -153,7 +152,7 @@ class TestPlayByPlayParser:
         raw = pd.DataFrame(
             {
                 "GAME_ID": ["0022300001"] * 4,
-                "PERIOD": [1, 1, 4, 4],
+                "PERIOD": [1, 1, 5, 5],
                 "PCTIMESTRING": [
                     "PT00M01.00S",
                     "PT00M00.00S",
@@ -172,6 +171,26 @@ class TestPlayByPlayParser:
 
         assert (result["game_outcome"] == 1).all()
 
+    def test_timeout_action_team_handles_missing_opponent_description(self, tmp_path):
+        raw = pd.DataFrame(
+            {
+                "GAME_ID": ["0022300001", "0022300001"],
+                "EVENTNUM": [1, 2],
+                "PERIOD": [4, 4],
+                "PCTIMESTRING": ["PT00M30.00S", "PT00M00.00S"],
+                "EVENTMSGTYPE": [9, 13],
+                "SCORE": ["97 - 100", "97 - 100"],
+                "HOMEDESCRIPTION": ["Home Timeout", pd.NA],
+                "VISITORDESCRIPTION": [pd.NA, pd.NA],
+            }
+        )
+
+        parser = PlayByPlayParser(processed_dir=tmp_path)
+        result = parser.parse(raw)
+
+        timeout = result.loc[result["action_taken"] == "timeout"].iloc[0]
+        assert timeout["action_team"] == 1
+
     def test_parse_output_columns(self, tmp_path):
         """parse() should return the new flat historical log columns."""
         raw = _make_raw_pbp(30)
@@ -181,13 +200,14 @@ class TestPlayByPlayParser:
             required = {
                 "game_id",
                 "season",
+                "period",
+                "event_num",
                 "seconds_remaining",
                 "score_differential",
                 "possession",
-                "fouls_to_give",
                 "action_taken",
+                "action_team",
                 "game_outcome",
-                "opponent_fg3_pct",
             }
             assert required.issubset(set(result.columns))
 
@@ -214,20 +234,16 @@ class TestBuildSyntheticTransitions:
         required = {
             "game_id",
             "season",
+            "period",
+            "event_num",
             "seconds_remaining",
             "score_differential",
             "possession",
-            "fouls_to_give",
             "action_taken",
+            "action_team",
             "game_outcome",
-            "opponent_fg3_pct",
         }
         assert required.issubset(set(df.columns))
-
-    def test_fouls_bounded(self):
-        df = build_synthetic_transitions(n_samples=500)
-        assert (df["fouls_to_give"] <= MAX_FOULS_TO_GIVE).all()
-        assert (df["fouls_to_give"] >= 0).all()
 
     def test_possession_binary(self):
         df = build_synthetic_transitions(n_samples=200)

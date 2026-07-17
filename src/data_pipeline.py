@@ -9,19 +9,20 @@ Output columns
 --------------
     game_id             : string  -- unique game identifier
     season              : string  -- e.g. "2023-24"
+    period              : int     -- 4 = fourth quarter, 5+ = overtime
+    event_num           : int     -- source event sequence within the game
     seconds_remaining   : int     -- seconds left in the period [0, 180]
     score_differential  : int     -- home minus away score (clipped to ±30)
     possession          : int     -- 0 = away team, 1 = home team
-    fouls_to_give       : int     -- [0, 2]
     action_taken        : string  -- "shoot", "foul", "timeout", "turnover",
                                     "rebound", "free_throw", or "other"
+    action_team         : int?    -- 0 = away, 1 = home, null = unknown
     game_outcome        : int     -- 1 = home team won, 0 = away team won
-    opponent_fg3_pct    : float   -- away (visiting) team's 3PT FG% for that
-                                    game, derived from play-by-play events
 """
 
 from __future__ import annotations
 
+import json
 import logging
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -40,7 +41,6 @@ PROCESSED_DIR = DATA_DIR / "processed"
 
 FINAL_PERIOD_SECONDS = 180  # last 3 minutes of regulation / OT
 SCORE_DIFF_CLIP = 30  # clip extreme leads for analysis
-MAX_FOULS_TO_GIVE = 2
 
 
 # ---------------------------------------------------------------------------
@@ -120,12 +120,31 @@ class NBAPlayByPlayScraper:
     # PlayByPlayParser
     _COLUMN_MAP: Dict[str, str] = {
         "game_id": "GAME_ID",
+        "eventnum": "EVENTNUM",
         "period": "PERIOD",
         "pctimestring": "PCTIMESTRING",
         "eventmsgtype": "EVENTMSGTYPE",
         "score": "SCORE",
         "homedescription": "HOMEDESCRIPTION",
         "visitordescription": "VISITORDESCRIPTION",
+        "player1_team_id": "PLAYER1_TEAM_ID",
+        "team_id_home": "HOME_TEAM_ID",
+        "team_id_away": "AWAY_TEAM_ID",
+    }
+
+    _CACHE_COLUMNS = {
+        "GAME_ID",
+        "EVENTNUM",
+        "PERIOD",
+        "PCTIMESTRING",
+        "EVENTMSGTYPE",
+        "SCORE",
+        "HOMEDESCRIPTION",
+        "VISITORDESCRIPTION",
+        "PLAYER1_TEAM_ID",
+        "HOME_TEAM_ID",
+        "AWAY_TEAM_ID",
+        "SEASON",
     }
 
     def __init__(
@@ -184,8 +203,8 @@ class NBAPlayByPlayScraper:
         conn = sqlite3.connect(str(db_path))
         try:
             df = pd.read_sql_query(
-                "SELECT game_id, period, pctimestring, eventmsgtype, score, "
-                "homedescription, visitordescription "
+                "SELECT game_id, eventnum, period, pctimestring, eventmsgtype, "
+                "score, homedescription, visitordescription, player1_team_id "
                 "FROM play_by_play WHERE game_id = ?",
                 conn,
                 params=(game_id,),
@@ -199,15 +218,6 @@ class NBAPlayByPlayScraper:
 
     def fetch_all(self) -> pd.DataFrame:
         """Fetch PBP for all configured seasons and return combined DataFrame."""
-        combined_path = self.raw_dir / "all_seasons_pbp.parquet"
-        if combined_path.exists():
-            logger.info("Loading cached combined PBP from %s", combined_path)
-            return pd.read_parquet(combined_path)
-
-        import sqlite3
-
-        db_path = self._get_db_path()
-
         prefixes = [
             self._SEASON_PREFIXES[s] for s in self.seasons if s in self._SEASON_PREFIXES
         ]
@@ -215,18 +225,45 @@ class NBAPlayByPlayScraper:
             logger.warning("No valid season prefixes found; returning empty DataFrame.")
             return pd.DataFrame()
 
+        combined_path = self.raw_dir / "all_seasons_pbp.parquet"
+        manifest_path = self.raw_dir / "all_seasons_pbp.json"
+        if combined_path.exists():
+            cached = pd.read_parquet(combined_path)
+            cached_prefixes = set()
+            if manifest_path.exists():
+                manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+                cached_prefixes = set(manifest.get("requested_prefixes", []))
+            if self._CACHE_COLUMNS.issubset(cached.columns) and set(prefixes).issubset(
+                cached_prefixes
+            ):
+                logger.info("Loading cached combined PBP from %s", combined_path)
+                return cached.loc[
+                    cached["GAME_ID"].astype(str).str[:5].isin(prefixes)
+                ].copy()
+            logger.info("Cached PBP schema or season coverage is stale; rebuilding it.")
+
+        import sqlite3
+
+        db_path = self._get_db_path()
+
         where_clause = " OR ".join(["game_id LIKE ?" for _ in prefixes])
         params = [f"{p}%" for p in prefixes]
 
         query = (
-            "SELECT game_id, period, pctimestring, eventmsgtype, score, "
-            "homedescription, visitordescription "
+            "SELECT game_id, eventnum, period, pctimestring, eventmsgtype, score, "
+            "homedescription, visitordescription, player1_team_id "
             f"FROM play_by_play WHERE ({where_clause})"
+        )
+        game_query = (
+            "SELECT game_id, MAX(team_id_home) AS team_id_home, "
+            "MAX(team_id_away) AS team_id_away FROM game "
+            f"WHERE ({where_clause}) GROUP BY game_id"
         )
 
         conn = sqlite3.connect(str(db_path))
         try:
             df = pd.read_sql_query(query, conn, params=params)
+            games = pd.read_sql_query(game_query, conn, params=params)
         finally:
             conn.close()
 
@@ -234,12 +271,17 @@ class NBAPlayByPlayScraper:
             logger.warning("No play-by-play data found for the specified seasons.")
             return pd.DataFrame()
 
+        df = df.merge(games, on="game_id", how="left")
         df = df.rename(columns=self._COLUMN_MAP)
 
         prefix_to_season = {v: k for k, v in self._SEASON_PREFIXES.items()}
         df["SEASON"] = df["GAME_ID"].str[:5].map(prefix_to_season).fillna("")
 
         df.to_parquet(combined_path, index=False)
+        manifest_path.write_text(
+            json.dumps({"requested_prefixes": prefixes}, indent=2) + "\n",
+            encoding="utf-8",
+        )
         logger.info("Saved %d events to %s", len(df), combined_path)
         return df
 
@@ -330,20 +372,14 @@ class PlayByPlayParser:
             raise ValueError(f"Raw DataFrame missing columns: {missing}")
 
         raw_df = raw_df.copy()
+        if "EVENTNUM" not in raw_df.columns:
+            raw_df["EVENTNUM"] = np.arange(len(raw_df))
+        raw_df = raw_df.sort_values(
+            ["GAME_ID", "PERIOD", "EVENTNUM"],
+            kind="stable",
+        ).reset_index(drop=True)
         raw_df = self._add_seconds_remaining(raw_df)
         raw_df = self._add_score_columns(raw_df)
-
-        fg3_pct_by_game: Dict[str, float] = {}
-        for game_id, full_game_df in raw_df.groupby("GAME_ID"):
-            visitor_desc = full_game_df["VISITORDESCRIPTION"].fillna("").str.upper()
-            is_shot_made = full_game_df["EVENTMSGTYPE"] == self._SHOT_MADE_TYPE
-            is_shot_missed = full_game_df["EVENTMSGTYPE"] == self._SHOT_MISSED_TYPE
-            is_3pt = visitor_desc.str.contains("3PT", na=False)
-            fg3_made = int((is_shot_made & is_3pt).sum())
-            fg3_attempted = int(((is_shot_made | is_shot_missed) & is_3pt).sum())
-            fg3_pct_by_game[str(game_id)] = (
-                round(fg3_made / fg3_attempted, 4) if fg3_attempted > 0 else 0.33
-            )
 
         rows: List[Dict] = []
         # Group by the FULL raw_df to trace chronological possession perfectly
@@ -362,16 +398,14 @@ class PlayByPlayParser:
             else:
                 season = _season_from_game_id(str(game_id))
 
-            opponent_fg3_pct = fg3_pct_by_game.get(str(game_id), 0.33)
-            game_rows = self._process_game(
-                str(game_id), season, game_outcome, game_df, opponent_fg3_pct
-            )
+            game_rows = self._process_game(str(game_id), season, game_outcome, game_df)
             rows.extend(game_rows)
 
         if not rows:
             return pd.DataFrame()
 
         result = pd.DataFrame(rows)
+        result["action_team"] = result["action_team"].astype("Int8")
         out_path = self.processed_dir / "transitions.parquet"
         result.to_parquet(out_path, index=False)
         logger.info("Saved %d possession records to %s", len(result), out_path)
@@ -401,8 +435,8 @@ class PlayByPlayParser:
         scores = df["SCORE"].apply(parse_score)
         df["away_score"] = [s[0] for s in scores]
         df["home_score"] = [s[1] for s in scores]
-        df["home_score"] = df["home_score"].ffill()
-        df["away_score"] = df["away_score"].ffill()
+        df["home_score"] = df.groupby("GAME_ID")["home_score"].ffill()
+        df["away_score"] = df.groupby("GAME_ID")["away_score"].ffill()
         df["home_score"] = df["home_score"].fillna(0)
         df["away_score"] = df["away_score"].fillna(0)
         df["score_differential"] = (
@@ -428,30 +462,94 @@ class PlayByPlayParser:
         final_diff = int(final_row.get("score_differential", 0))
         return 1 if final_diff > 0 else 0
 
-    def _infer_possession(self, row: pd.Series, current_possession: int) -> int:
+    @staticmethod
+    def _normalize_team_id(value) -> str:
+        if pd.isna(value):
+            return ""
+        return str(value).removesuffix(".0")
+
+    @staticmethod
+    def _description(value) -> str:
+        return "" if pd.isna(value) else str(value)
+
+    def _infer_action_team(self, row: pd.Series) -> Optional[int]:
+        player_team = self._normalize_team_id(row.get("PLAYER1_TEAM_ID"))
+        home_team = self._normalize_team_id(row.get("HOME_TEAM_ID"))
+        away_team = self._normalize_team_id(row.get("AWAY_TEAM_ID"))
+        if player_team and player_team == home_team:
+            return 1
+        if player_team and player_team == away_team:
+            return 0
+
+        home_desc = self._description(row.get("HOMEDESCRIPTION")).strip()
+        away_desc = self._description(row.get("VISITORDESCRIPTION")).strip()
+        if home_desc and not away_desc:
+            return 1
+        if away_desc and not home_desc:
+            return 0
+        return None
+
+    def _possession_before_event(
+        self,
+        row: pd.Series,
+        current_possession: int,
+        action_team: Optional[int],
+    ) -> int:
+        if action_team is None:
+            return current_possession
+
+        etype = int(row.get("EVENTMSGTYPE", 0))
+        if etype in {
+            self._SHOT_MADE_TYPE,
+            self._SHOT_MISSED_TYPE,
+            self._FREE_THROW_TYPE,
+            self._TURNOVER_TYPE,
+            self._TIMEOUT_TYPE,
+        }:
+            return action_team
+        if etype == self._FOUL_TYPE:
+            desc = (
+                self._description(row.get("HOMEDESCRIPTION"))
+                + self._description(row.get("VISITORDESCRIPTION"))
+            ).upper()
+            return action_team if "OFFENSIVE" in desc else 1 - action_team
+        return current_possession
+
+    def _infer_possession(
+        self,
+        row: pd.Series,
+        current_possession: int,
+        action_team: Optional[int],
+    ) -> int:
         """Heuristic: determine which team has the ball after this event."""
         etype = int(row.get("EVENTMSGTYPE", 0))
-        home_desc = str(row.get("HOMEDESCRIPTION", "") or "").upper()
-        away_desc = str(row.get("VISITORDESCRIPTION", "") or "").upper()
+        home_desc = self._description(row.get("HOMEDESCRIPTION")).upper()
+        away_desc = self._description(row.get("VISITORDESCRIPTION")).upper()
 
         if etype == self._SHOT_MADE_TYPE:
-            return 1 - current_possession
+            return 1 - action_team if action_team is not None else 1 - current_possession
         if etype == self._SHOT_MISSED_TYPE:
-            return current_possession  # assume same team until rebound
+            return action_team if action_team is not None else current_possession
         if etype == self._REBOUND_TYPE:
+            if action_team is not None:
+                return action_team
             if home_desc:
                 return 1  # home rebound → home possession
             if away_desc:
                 return 0
             return current_possession
         if etype == self._TURNOVER_TYPE:
-            return 1 - current_possession
+            return 1 - action_team if action_team is not None else 1 - current_possession
         if etype == self._FREE_THROW_TYPE:
             desc = home_desc + away_desc
             if "1 OF 1" in desc or "2 OF 2" in desc or "3 OF 3" in desc:
                 if "MISS" in desc:
-                    return current_possession
-                return 1 - current_possession
+                    return action_team if action_team is not None else current_possession
+                return (
+                    1 - action_team
+                    if action_team is not None
+                    else 1 - current_possession
+                )
         if etype == self._VIOLATION_TYPE:
             desc = home_desc + away_desc
             # Kicked ball and defensive violations retain possession.
@@ -475,62 +573,57 @@ class PlayByPlayParser:
         }
         return mapping.get(etype, "other")
 
-    def _fouls_remaining(self, row: pd.Series, possession: int) -> int:
-        """Very coarse approximation: foul count from description keywords."""
-        desc = str(row.get("HOMEDESCRIPTION", "") or "") + str(
-            row.get("VISITORDESCRIPTION", "") or ""
-        )
-        if "LOOSE BALL" in desc.upper() or "OFFENSIVE" in desc.upper():
-            return min(MAX_FOULS_TO_GIVE, 2)
-        return 1
-
     def _process_game(
         self,
         game_id: str,
         season: str,
         game_outcome: int,
         df: pd.DataFrame,
-        opponent_fg3_pct: float,
     ) -> List[Dict]:
         rows: List[Dict] = []
         possession = (
             1  # Start with home team (will self-correct within seconds of tip-off)
         )
-        fouls_to_give = 1
-
-        # Sort chronologically: Period ascending, Seconds Remaining descending
-        events = df.sort_values(
-            ["PERIOD", "seconds_remaining"], ascending=[True, False]
-        ).reset_index(drop=True)
+        events = df.sort_values(["PERIOD", "EVENTNUM"], kind="stable").reset_index(
+            drop=True
+        )
 
         for _, row in events.iterrows():
             period = int(row["PERIOD"])
             sec = int(row["seconds_remaining"])
             score_diff = int(row["score_differential"])
             action_taken = self._classify_action(row)
+            action_team = self._infer_action_team(row)
+            event_possession = self._possession_before_event(
+                row,
+                possession,
+                action_team,
+            )
 
             # Update state variables chronologically for the entire game
-            next_possession = self._infer_possession(row, possession)
-            next_fouls = self._fouls_remaining(row, possession)
-
+            next_possession = self._infer_possession(
+                row,
+                event_possession,
+                action_team,
+            )
             # Only record the possession if it falls into our target time window
             if period >= 4 and sec <= FINAL_PERIOD_SECONDS:
                 rows.append(
                     {
                         "game_id": game_id,
                         "season": season,
+                        "period": period,
+                        "event_num": int(row["EVENTNUM"]),
                         "seconds_remaining": sec,
                         "score_differential": score_diff,
-                        "possession": possession,
-                        "fouls_to_give": fouls_to_give,
+                        "possession": event_possession,
                         "action_taken": action_taken,
+                        "action_team": action_team,
                         "game_outcome": game_outcome,
-                        "opponent_fg3_pct": opponent_fg3_pct,
                     }
                 )
 
             possession = next_possession
-            fouls_to_give = next_fouls
 
         return rows
 
@@ -552,7 +645,6 @@ def build_synthetic_transitions(n_samples: int = 5000, seed: int = 42) -> pd.Dat
     score_diffs = rng.integers(-10, 11, size=n)
     seconds = rng.integers(0, 181, size=n)
     possessions = rng.integers(0, 2, size=n)
-    fouls = rng.integers(0, 3, size=n)
     actions = rng.choice(
         [
             "shoot",
@@ -572,18 +664,20 @@ def build_synthetic_transitions(n_samples: int = 5000, seed: int = 42) -> pd.Dat
         size=n,
     )
     game_outcomes = np.where(score_diffs > 0, 1, 0)
-    opponent_fg3_pct = rng.uniform(0.25, 0.45, size=n).round(4)
+    action_teams = possessions.copy()
+    action_teams[actions == "foul"] = 1 - possessions[actions == "foul"]
 
     return pd.DataFrame(
         {
             "game_id": [f"synthetic_{i // 50}" for i in range(n)],
             "season": seasons,
+            "period": np.full(n, 4),
+            "event_num": np.arange(n),
             "seconds_remaining": seconds,
             "score_differential": score_diffs,
             "possession": possessions,
-            "fouls_to_give": np.minimum(MAX_FOULS_TO_GIVE, fouls),
             "action_taken": actions,
+            "action_team": action_teams,
             "game_outcome": game_outcomes,
-            "opponent_fg3_pct": opponent_fg3_pct,
         }
     )

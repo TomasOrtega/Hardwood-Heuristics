@@ -50,7 +50,7 @@ def _generate_theorem2_doc(
     processed_dir: Path = PROCESSED_DIR,
     docs_dir: Path = DOCS_DIR,
 ) -> Path:
-    """Write the static Theorem 2 Markdown file."""
+    """Write Theorem 2 Markdown from its processed sweep."""
     from src.theorems.theorem2 import generate_doc
 
     return generate_doc(processed_dir=processed_dir, docs_dir=docs_dir)

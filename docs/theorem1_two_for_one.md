@@ -2,19 +2,23 @@
 
 ## Claim
 
-> **Rushing a shot in tied games is beneficial when there is more than one possession remaining.**
+> **Does taking a quick shot in a tied game improve the chance of winning when
+> 30--40 seconds remain?**
 
 ---
 
 ## How We Measure It
 
-We filter the historical play-by-play log for tied games **where the home team has possession** and group each possession by strategy:
+At each clock value from 30 to 40 seconds, we filter for tied games and include
+both home and away possessions whose next logged event is a shot by the team
+with the ball. We group those possessions by timing:
 
-- **Rush (shoot):** The possessing team takes a shot attempt.
-- **Normal (hold):** The possessing team holds the ball (any non-shooting action).
+- **Rush:** The shot occurs within five seconds of the target clock.
+- **Normal:** The shot occurs more than five seconds later.
 
-We calculate the **historical win percentage** for each group — the fraction
-of games where the home team went on to win given that choice.
+The saved sweep reports the possessing team's historical win percentage and
+the number of observations in each group. It is a descriptive association,
+not a causal estimate; team quality and game context are not adjusted for.
 
 ---
 
@@ -26,4 +30,4 @@ of games where the home team went on to win given that choice.
 
 ## Conclusion
 
-The 2-for-1 shows a positive signal for most of the analyzed time range.
+Rushing had the higher observed win rate at 4 of 6 comparable clock points. The result is mixed and should not be interpreted as a causal effect.
