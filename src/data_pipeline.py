@@ -385,7 +385,7 @@ class PlayByPlayParser:
         return df
 
     def _add_score_columns(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Parse 'HHH - VVV' SCORE strings into home/away integers."""
+        """Parse 'VVV - HHH' SCORE strings into away/home integers."""
 
         def parse_score(s):
             if pd.isna(s) or str(s).strip() == "":
@@ -399,8 +399,8 @@ class PlayByPlayParser:
                 return np.nan, np.nan
 
         scores = df["SCORE"].apply(parse_score)
-        df["home_score"] = [s[0] for s in scores]
-        df["away_score"] = [s[1] for s in scores]
+        df["away_score"] = [s[0] for s in scores]
+        df["home_score"] = [s[1] for s in scores]
         df["home_score"] = df["home_score"].ffill()
         df["away_score"] = df["away_score"].ffill()
         df["home_score"] = df["home_score"].fillna(0)
@@ -416,10 +416,15 @@ class PlayByPlayParser:
         """
         Return 1 if the home team won, 0 if the away team won.
 
-        Uses the score at the minimum seconds_remaining row (the latest
-        tracked event) as a proxy for the final game score.
+        Uses the latest tracked score from the final regulation or overtime
+        period as a proxy for the final game score.
         """
-        final_row = game_df.loc[game_df["seconds_remaining"].idxmin()]
+        final_period = game_df["PERIOD"].max()
+        final_period_df = game_df.loc[game_df["PERIOD"] == final_period]
+        final_seconds = final_period_df["seconds_remaining"].min()
+        final_row = final_period_df.loc[
+            final_period_df["seconds_remaining"] == final_seconds
+        ].iloc[-1]
         final_diff = int(final_row.get("score_differential", 0))
         return 1 if final_diff > 0 else 0
 

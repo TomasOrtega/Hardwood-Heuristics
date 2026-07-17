@@ -142,12 +142,35 @@ class TestPlayByPlayParser:
 
     def test_score_parsing(self, tmp_path):
         raw = _make_raw_pbp(10)
-        raw["SCORE"] = "100 - 97"
+        raw["SCORE"] = "97 - 100"
         parser = PlayByPlayParser(processed_dir=tmp_path)
         result = parser.parse(raw)
         if not result.empty:
             # Home leads by 3
             assert (result["score_differential"] == 3).all()
+
+    def test_game_outcome_uses_final_period_score(self, tmp_path):
+        raw = pd.DataFrame(
+            {
+                "GAME_ID": ["0022300001"] * 4,
+                "PERIOD": [1, 1, 4, 4],
+                "PCTIMESTRING": [
+                    "PT00M01.00S",
+                    "PT00M00.00S",
+                    "PT00M01.00S",
+                    "PT00M00.00S",
+                ],
+                "EVENTMSGTYPE": [2, 2, 2, 2],
+                "SCORE": ["20 - 20", "20 - 20", "96 - 100", "96 - 100"],
+                "HOMEDESCRIPTION": [""] * 4,
+                "VISITORDESCRIPTION": [""] * 4,
+            }
+        )
+
+        parser = PlayByPlayParser(processed_dir=tmp_path)
+        result = parser.parse(raw)
+
+        assert (result["game_outcome"] == 1).all()
 
     def test_parse_output_columns(self, tmp_path):
         """parse() should return the new flat historical log columns."""
