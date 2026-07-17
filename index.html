@@ -559,8 +559,10 @@
 minutes of NBA games to <em>quantitatively</em> test common basketball strategies coaches
 and analysts have debated for decades.
 We call each one of these strategies a "theorem" — a statement about the optimal strategic choice in a given game situation.</p>
-<p>We use five seasons of NBA play-by-play data (2019--24) and to compute actual historical win percentages for each strategic choice.</p>
-<p>Conclusions are based strictly on what <em>actually happened</em> in real games.</p>
+<p>We use four seasons of NBA play-by-play data (2019--23) to compute historical
+win percentages for each strategic choice.</p>
+<p>The results describe what happened in these games. They are associations, not
+causal estimates of what would have happened under a different coaching choice.</p>
 <hr />
 <h2 id="how-it-works">How It Works<a class="headerlink" href="#how-it-works" title="Permanent link">&para;</a></h2>
 <h3 id="data-collection">Data Collection<a class="headerlink" href="#data-collection" title="Permanent link">&para;</a></h3>
@@ -584,6 +586,14 @@ we record:</p>
 <td>NBA season (e.g. 2023-24)</td>
 </tr>
 <tr>
+<td><code>period</code></td>
+<td>Fourth quarter or overtime period</td>
+</tr>
+<tr>
+<td><code>event_num</code></td>
+<td>Source event sequence within the game</td>
+</tr>
+<tr>
 <td><code>seconds_remaining</code></td>
 <td>Seconds left in the period</td>
 </tr>
@@ -596,12 +606,12 @@ we record:</p>
 <td>0 = away team, 1 = home team</td>
 </tr>
 <tr>
-<td><code>fouls_to_give</code></td>
-<td>Fouls available before bonus</td>
+<td><code>action_taken</code></td>
+<td>Logged action (shoot, foul, timeout, …)</td>
 </tr>
 <tr>
-<td><code>action_taken</code></td>
-<td>Strategic action (shoot, foul, hold, …)</td>
+<td><code>action_team</code></td>
+<td>0 = away team, 1 = home team</td>
 </tr>
 <tr>
 <td><code>game_outcome</code></td>
@@ -612,25 +622,21 @@ we record:</p>
 <h3 id="analysis-method">Analysis Method<a class="headerlink" href="#analysis-method" title="Permanent link">&para;</a></h3>
 <p>Each theorem targets a specific late-game decision point.  We evaluate it by:</p>
 <ol>
-<li><strong>Filter</strong> — restrict <code>transitions.parquet</code> to the exact game situation
-   (score margin, possession, time window, fouls-to-give) that defines the
-   theorem's scenario.</li>
 <li><strong>Temporal join</strong> — for each target clock value <em>t</em>, apply a backward-forward
-   temporal join (<code>merge_asof</code>) on each game independently:</li>
-<li><em>Look backward</em>: record the most recent game state (score, possession,
-     opponent 3PT%) at or just before <em>t</em>.</li>
-<li><em>Look forward</em>: record the first action taken at or after <em>t</em>.
+   temporal join (<code>merge_asof</code>) independently to every game-period:</li>
+<li><em>Look backward</em>: record the score immediately before <em>t</em>.</li>
+<li><em>Look forward</em>: record the possessing team and first action at or after
+     <em>t</em>.
    This avoids the survivorship bias of a simple window filter, which silently
-   drops possessions where the clock ran without any logged play-by-play event.</li>
-<li><strong>Split by action</strong> — separate possessions into the two (or more) strategic
-   choices being compared (e.g., <em>rush</em> vs. <em>hold</em>, <em>foul</em> vs. <em>no-foul</em>,
-   <em>timeout</em> vs. <em>no timeout</em>).</li>
-<li><strong>Win-rate estimate</strong> — compute <code>mean(game_outcome)</code> for each action group,
-   yielding an empirical home-team win percentage.  When a bucket has no
-   observations the win rate defaults to 0.50 (coin-flip prior).</li>
-<li><strong>Compare</strong> — report the win-percentage <em>gain</em> (action A minus action B) at
-   each time value and identify when, if ever, one strategy is consistently
-   better.</li>
+   drops possessions when the clock runs without an event.</li>
+<li><strong>Normalize perspective</strong> — express the outcome from the decision-making
+   team's perspective, allowing both home and away possessions to contribute.</li>
+<li><strong>Filter and classify</strong> — retain only the score, possession, action owner,
+   and timing conditions that define each theorem's two strategies.</li>
+<li><strong>Estimate</strong> — compute the observed win percentage and sample count for each
+   group. Empty groups remain missing; the analysis does not invent a prior.</li>
+<li><strong>Compare</strong> — report action A minus action B at each clock value. Because
+   coaching choices are not randomized, these comparisons remain descriptive.</li>
 </ol>
 <hr />
 <h2 id="reproducing-the-analysis">Reproducing the Analysis<a class="headerlink" href="#reproducing-the-analysis" title="Permanent link">&para;</a></h2>
@@ -638,19 +644,19 @@ we record:</p>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>uv<span class="w"> </span>sync
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="c1"># Run tests</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>pytest<span class="w"> </span>tests/<span class="w"> </span>-v
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>uv<span class="w"> </span>run<span class="w"> </span>pytest<span class="w"> </span>tests/<span class="w"> </span>-v
 </span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>
 </span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="c1"># Download play-by-play data (requires Kaggle API key, only needs to be done once)</span>
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>python<span class="w"> </span>-m<span class="w"> </span>src.scrape_nba_data
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>src.scrape_nba_data
 </span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>
 </span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="c1"># Aggregate historical win rates (requires transitions.parquet)</span>
-</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>python<span class="w"> </span>-m<span class="w"> </span>src.collect_data
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>src.collect_data
 </span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>
 </span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="c1"># Generate plots</span>
-</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>python<span class="w"> </span>-m<span class="w"> </span>src.generate_plots
+</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>src.generate_plots
 </span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>
 </span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="c1"># Build documentation</span>
-</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>zensical<span class="w"> </span>serve
+</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>uv<span class="w"> </span>run<span class="w"> </span>zensical<span class="w"> </span>serve
 </span></code></pre></div>
 
 
